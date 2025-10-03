@@ -1,0 +1,39 @@
+# Web Framework
+Flask>=3.0.0
+Flask-Session>=0.5.0
+Flask-Limiter>=4.0.0
+Werkzeug>=3.0.0
+
+# Deep Learning & Face Recognition
+deepface
+tensorflow
+tf-keras
+
+# Computer Vision
+opencv-python
+opencv-contrib-python
+Pillow
+
+# Face Detection Models (used by DeepFace)
+mtcnn
+retina-face
+
+# Database
+pymongo
+dnspython
+
+# Utilities
+python-dotenv
+numpy
+pandas
+
+# Security
+passlib
+bcrypt
+
+# Production Server
+gunicorn
+waitress
+
+# Additional utilities
+requests

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SecureVision{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-12">
+            <h1 class="mb-4">
+                <i class="bi bi-speedometer2 text-primary"></i> Welcome, {{ session.get('username') }}!
+            </h1>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- User Info Card -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-circle"></i> User Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Username:</strong>
+                        <p class="mb-0">{{ user.username }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Email:</strong>
+                        <p class="mb-0">{{ user.email }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Member Since:</strong>
+                        <p class="mb-0">{{ user.created_at[:10] if user.created_at else 'N/A' }}</p>
+                    </div>
+                    <div class="mb-0">
+                        <strong>Last Login:</strong>
+                        <p class="mb-0">{{ user.last_login[:19].replace('T', ' ') if user.last_login else 'First login' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Info Card -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear"></i> System Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Face Recognition Model:</strong>
+                        <p class="mb-0">FaceNet (128-dimensional)</p>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Detection Backend:</strong>
+                        <p class="mb-0">RetinaFace</p>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Database:</strong>
+                        <p class="mb-0" id="dbStatus">Loading...</p>
+                    </div>
+                    <div class="mb-0">
+                        <strong>Security Level:</strong>
+                        <p class="mb-0"><span class="badge bg-success">High</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Logs -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in logs %}
+                                    <tr>
+                                        <td>
+                                            {% if 'LOGIN' in log.action %}
+                                                <i class="bi bi-box-arrow-in-right text-success"></i>
+                                            {% elif 'LOGOUT' in log.action %}
+                                                <i class="bi bi-box-arrow-right text-warning"></i>
+                                            {% elif 'SIGNUP' in log.action %}
+                                                <i class="bi bi-person-plus text-info"></i>
+                                            {% else %}
+                                                <i class="bi bi-activity text-primary"></i>
+                                            {% endif %}
+                                            {{ log.action }}
+                                        </td>
+                                        <td>{{ log.details or 'N/A' }}</td>
+                                        <td>{{ log.timestamp[:19].replace('T', ' ') if log.timestamp else 'N/A' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No recent activity</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning"></i> Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2 d-md-flex">
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Check database status
+    fetch('/health')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('dbStatus').textContent = data.database;
+        })
+        .catch(error => {
+            document.getElementById('dbStatus').textContent = 'Unknown';
+        });
+</script>
+{% endblock %}
