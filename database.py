@@ -78,7 +78,9 @@ class Database:
                 password TEXT NOT NULL,
                 face_encoding TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                last_login TEXT
+                last_login TEXT,
+                access_count INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'active'
             )
         ''')
 
@@ -99,12 +101,54 @@ class Database:
             CREATE TABLE IF NOT EXISTS logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
+                username TEXT,
                 action TEXT NOT NULL,
                 details TEXT,
                 timestamp TEXT NOT NULL,
+                ip_address TEXT,
+                success INTEGER DEFAULT 1,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         ''')
+
+        # App credentials table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS app_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                app_name TEXT NOT NULL,
+                app_username TEXT NOT NULL,
+                app_password TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                UNIQUE(user_id, app_name)
+            )
+        ''')
+
+        # Add columns to existing users table if they don't exist
+        try:
+            cursor.execute('ALTER TABLE users ADD COLUMN access_count INTEGER DEFAULT 0')
+        except:
+            pass
+        try:
+            cursor.execute('ALTER TABLE users ADD COLUMN status TEXT DEFAULT "active"')
+        except:
+            pass
+
+        # Add columns to existing logs table if they don't exist
+        try:
+            cursor.execute('ALTER TABLE logs ADD COLUMN username TEXT')
+        except:
+            pass
+        try:
+            cursor.execute('ALTER TABLE logs ADD COLUMN ip_address TEXT')
+        except:
+            pass
+        try:
+            cursor.execute('ALTER TABLE logs ADD COLUMN success INTEGER DEFAULT 1')
+        except:
+            pass
 
         self.sqlite_conn.commit()
         logger.info("✓ SQLite tables created successfully")
@@ -113,8 +157,10 @@ class Database:
     def create_user(self, user_data: Dict[str, Any]) -> bool:
         """Create a new user"""
         try:
-            user_data['created_at'] = datetime.utcnow().isoformat()
+            user_data['created_at'] = datetime.now().isoformat()
             user_data['last_login'] = None
+            user_data.setdefault('access_count', 0)
+            user_data.setdefault('status', 'active')
 
             if self.use_mongodb:
                 result = self.mongo_db.users.insert_one(user_data)
@@ -122,15 +168,17 @@ class Database:
             else:
                 cursor = self.sqlite_conn.cursor()
                 cursor.execute('''
-                    INSERT INTO users (username, email, password, face_encoding, created_at, last_login)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO users (username, email, password, face_encoding, created_at, last_login, access_count, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     user_data['username'],
                     user_data['email'],
                     user_data['password'],
                     json.dumps(user_data['face_encoding']),
                     user_data['created_at'],
-                    user_data['last_login']
+                    user_data['last_login'],
+                    user_data['access_count'],
+                    user_data['status']
                 ))
                 self.sqlite_conn.commit()
                 return cursor.lastrowid is not None
@@ -203,19 +251,22 @@ class Database:
             return []
 
     def update_user_login(self, username: str) -> bool:
-        """Update user's last login time"""
+        """Update user's last login time and increment access count"""
         try:
-            last_login = datetime.utcnow().isoformat()
+            last_login = datetime.now().isoformat()
             if self.use_mongodb:
                 result = self.mongo_db.users.update_one(
                     {'username': username},
-                    {'$set': {'last_login': last_login}}
+                    {
+                        '$set': {'last_login': last_login},
+                        '$inc': {'access_count': 1}
+                    }
                 )
                 return result.modified_count > 0
             else:
                 cursor = self.sqlite_conn.cursor()
                 cursor.execute(
-                    'UPDATE users SET last_login = ? WHERE username = ?',
+                    'UPDATE users SET last_login = ?, access_count = access_count + 1 WHERE username = ?',
                     (last_login, username)
                 )
                 self.sqlite_conn.commit()
@@ -240,14 +291,17 @@ class Database:
             return False
 
     # Logging Operations
-    def create_log(self, user_id: Optional[int], action: str, details: str = None) -> bool:
+    def create_log(self, user_id: Optional[int], action: str, details: str = None, username: str = None, ip_address: str = None, success: bool = True) -> bool:
         """Create a log entry"""
         try:
             log_data = {
                 'user_id': user_id,
+                'username': username,
                 'action': action,
                 'details': details,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'ip_address': ip_address,
+                'success': 1 if success else 0
             }
 
             if self.use_mongodb:
@@ -256,9 +310,9 @@ class Database:
             else:
                 cursor = self.sqlite_conn.cursor()
                 cursor.execute('''
-                    INSERT INTO logs (user_id, action, details, timestamp)
-                    VALUES (?, ?, ?, ?)
-                ''', (user_id, action, details, log_data['timestamp']))
+                    INSERT INTO logs (user_id, username, action, details, timestamp, ip_address, success)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, username, action, details, log_data['timestamp'], ip_address, log_data['success']))
                 self.sqlite_conn.commit()
                 return cursor.lastrowid is not None
         except Exception as e:
@@ -286,6 +340,116 @@ class Database:
         except Exception as e:
             logger.error(f"Error getting user logs: {e}")
             return []
+
+    # App Credentials Operations
+    def save_app_credentials(self, user_id: int, app_name: str, app_username: str, app_password: str) -> bool:
+        """Save or update app credentials for a user"""
+        try:
+            now = datetime.now().isoformat()
+
+            if self.use_mongodb:
+                result = self.mongo_db.app_credentials.update_one(
+                    {'user_id': user_id, 'app_name': app_name},
+                    {'$set': {
+                        'app_username': app_username,
+                        'app_password': app_password,
+                        'updated_at': now
+                    }, '$setOnInsert': {
+                        'created_at': now
+                    }},
+                    upsert=True
+                )
+                return result.acknowledged
+            else:
+                cursor = self.sqlite_conn.cursor()
+                # Check if exists
+                cursor.execute('''
+                    SELECT id FROM app_credentials
+                    WHERE user_id = ? AND app_name = ?
+                ''', (user_id, app_name))
+                existing = cursor.fetchone()
+
+                if existing:
+                    cursor.execute('''
+                        UPDATE app_credentials
+                        SET app_username = ?, app_password = ?, updated_at = ?
+                        WHERE user_id = ? AND app_name = ?
+                    ''', (app_username, app_password, now, user_id, app_name))
+                else:
+                    cursor.execute('''
+                        INSERT INTO app_credentials
+                        (user_id, app_name, app_username, app_password, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (user_id, app_name, app_username, app_password, now, now))
+
+                self.sqlite_conn.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error saving app credentials: {e}")
+            return False
+
+    def get_app_credentials(self, user_id: int, app_name: str) -> Optional[Dict[str, Any]]:
+        """Get app credentials for a specific app"""
+        try:
+            if self.use_mongodb:
+                creds = self.mongo_db.app_credentials.find_one({
+                    'user_id': user_id,
+                    'app_name': app_name
+                })
+                if creds:
+                    creds['_id'] = str(creds['_id'])
+                return creds
+            else:
+                cursor = self.sqlite_conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM app_credentials
+                    WHERE user_id = ? AND app_name = ?
+                ''', (user_id, app_name))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Error getting app credentials: {e}")
+            return None
+
+    def get_all_user_app_credentials(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get all app credentials for a user"""
+        try:
+            if self.use_mongodb:
+                creds = list(self.mongo_db.app_credentials.find({'user_id': user_id}))
+                for cred in creds:
+                    cred['_id'] = str(cred['_id'])
+                return creds
+            else:
+                cursor = self.sqlite_conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM app_credentials WHERE user_id = ?
+                ''', (user_id,))
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Error getting all app credentials: {e}")
+            return []
+
+    def delete_app_credentials(self, user_id: int, app_name: str) -> bool:
+        """Delete app credentials for a specific app"""
+        try:
+            if self.use_mongodb:
+                result = self.mongo_db.app_credentials.delete_one({
+                    'user_id': user_id,
+                    'app_name': app_name
+                })
+                return result.deleted_count > 0
+            else:
+                cursor = self.sqlite_conn.cursor()
+                cursor.execute('''
+                    DELETE FROM app_credentials
+                    WHERE user_id = ? AND app_name = ?
+                ''', (user_id, app_name))
+                self.sqlite_conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Error deleting app credentials: {e}")
+            return False
 
     def close(self):
         """Close database connections"""

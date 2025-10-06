@@ -1,25 +1,56 @@
 // Signup Page JavaScript
 
 let faceImage = null;
+let stream = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
+    const startCameraBtn = document.getElementById('startCamera');
     const captureBtn = document.getElementById('captureBtn');
+    const scanOverlay = document.getElementById('scanOverlay');
     const signupForm = document.getElementById('signupForm');
 
-    // Initialize camera
-    SecureVision.initCamera(video);
+    // Start camera
+    startCameraBtn.addEventListener('click', async function() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            startCameraBtn.disabled = true;
+            captureBtn.disabled = false;
+            SecureVision.showFaceStatus('Camera active - Ready to capture', 'info');
+        } catch (error) {
+            console.error('Camera error:', error);
+            SecureVision.showAlert('Unable to access camera. Please grant permissions.', 'danger');
+        }
+    });
 
     // Capture face
     captureBtn.addEventListener('click', function() {
-        faceImage = SecureVision.captureImage(video, canvas);
-        if (faceImage) {
-            SecureVision.showFaceStatus('Face captured successfully!', 'success');
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        // Show scanning animation
+        scanOverlay.style.display = 'block';
+        captureBtn.disabled = true;
+
+        setTimeout(() => {
+            scanOverlay.style.display = 'none';
+            faceImage = canvas.toDataURL('image/jpeg');
+
+            SecureVision.showFaceStatus('✓ Face captured successfully!', 'success');
             captureBtn.innerHTML = '<i class="bi bi-check-circle"></i> Face Captured';
-            captureBtn.classList.remove('btn-primary');
+            captureBtn.classList.remove('btn-success');
             captureBtn.classList.add('btn-success');
-        }
+
+            // Stop camera
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+        }, 2000);
     });
 
     // Handle signup form submission
@@ -97,6 +128,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', function() {
-        SecureVision.stopCamera(video);
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
     });
 });

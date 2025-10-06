@@ -29,7 +29,7 @@ class Config:
     # Face Recognition Settings
     FACE_DETECTION_BACKEND = os.getenv('FACE_DETECTION_BACKEND', 'retinaface')
     FACE_MODEL = os.getenv('FACE_MODEL', 'Facenet')
-    SIMILARITY_THRESHOLD = float(os.getenv('SIMILARITY_THRESHOLD', '0.6'))
+    SIMILARITY_THRESHOLD = float(os.getenv('SIMILARITY_THRESHOLD', '0.4'))  # Stricter threshold for better security
     MIN_FACE_SIZE = int(os.getenv('MIN_FACE_SIZE', '80'))
 
     # Upload Settings

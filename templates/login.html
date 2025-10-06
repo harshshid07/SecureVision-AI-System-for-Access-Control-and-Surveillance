@@ -1,62 +1,488 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureVision AI - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-{% block title %}Login - SecureVision{% endblock %}
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-{% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card shadow">
-                <div class="card-body p-5">
-                    <h2 class="card-title text-center mb-4">
-                        <i class="bi bi-shield-lock text-primary"></i> Secure Login
-                    </h2>
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.1;
+        }
 
-                    <form id="loginForm">
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" required>
+        .floating-orb {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .floating-orb:nth-child(1) { width: 100px; height: 100px; top: 20%; left: 10%; animation-delay: 0s; }
+        .floating-orb:nth-child(2) { width: 150px; height: 150px; top: 60%; right: 15%; animation-delay: 2s; }
+        .floating-orb:nth-child(3) { width: 80px; height: 80px; bottom: 20%; left: 70%; animation-delay: 4s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+            padding: 1rem 2rem;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4rem;
+        }
+
+        .info-section { flex: 1; }
+
+        .main-title {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #a0a0a0;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .features { list-style: none; }
+
+        .features li {
+            padding: 0.5rem 0;
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .features li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .auth-panel {
+            flex: 1;
+            max-width: 500px;
+        }
+
+        .panel-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #0099cc, #00d4ff);
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .panel-tabs {
+            display: flex;
+            margin-bottom: 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 0.25rem;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            background: transparent;
+            color: #a0a0a0;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            color: #ffffff;
+        }
+
+        .form-group { margin-bottom: 1.5rem; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.2);
+        }
+
+        .camera-section { text-align: center; margin-bottom: 1.5rem; }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            margin: 0 auto 1rem;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 3px solid #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #000;
+        }
+
+        .scanning-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+            animation: scan 2s ease-in-out infinite;
+            display: none;
+        }
+
+        .scanning-overlay.active { display: block; }
+
+        @keyframes scan {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(276px); }
+        }
+
+        .camera-info {
+            color: #a0a0a0;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            color: #ffffff;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .alert-success {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            color: #00ff00;
+        }
+
+        .alert-danger {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: #ff0000;
+        }
+
+        .link-text {
+            text-align: center;
+            margin-top: 1rem;
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+
+        .link-text a {
+            color: #00d4ff;
+            text-decoration: none;
+        }
+
+        @media (max-width: 968px) {
+            .container { flex-direction: column; gap: 2rem; }
+            .main-title { font-size: 2rem; }
+        }
+
+        #canvas { display: none; }
+    </style>
+</head>
+<body>
+    <div class="animated-bg">
+        <div class="floating-orb"></div>
+        <div class="floating-orb"></div>
+        <div class="floating-orb"></div>
+    </div>
+
+    <header class="header">
+        <div class="nav-container">
+            <div class="logo">SecureVision AI</div>
+            <div style="color: #a0a0a0; font-size: 0.9rem;">Advanced Facial Recognition System</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="info-section">
+            <h1 class="main-title">Next-Gen Access Control</h1>
+            <p class="subtitle">Experience the future of security with our AI-powered facial recognition system. Passwordless authentication with military-grade anti-spoofing technology.</p>
+
+            <ul class="features">
+                <li>🔐 Passwordless Authentication</li>
+                <li>🎯 Real-time Face Recognition</li>
+                <li>🛡️ Anti-Spoofing Protection</li>
+                <li>⚡ Lightning-fast Login</li>
+            </ul>
+        </div>
+
+        <div class="auth-panel">
+            <div class="panel-container">
+                <div class="panel-tabs">
+                    <button class="tab-button active">Login</button>
+                    <button class="tab-button" onclick="window.location.href='/signup'">Register</button>
+                </div>
+
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" class="form-input" placeholder="Enter your username" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" class="form-input" placeholder="Enter your password" required>
+                    </div>
+
+                    <div class="camera-section">
+                        <div class="camera-container">
+                            <video id="video" autoplay muted></video>
+                            <canvas id="canvas"></canvas>
+                            <div class="scanning-overlay" id="scanOverlay"></div>
                         </div>
+                        <p class="camera-info">Position your face in the camera frame</p>
+                    </div>
 
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" required>
-                        </div>
+                    <div id="alertMessage"></div>
 
-                        <div class="card bg-light mb-3">
-                            <div class="card-body">
-                                <h6 class="card-title">
-                                    <i class="bi bi-camera-video"></i> Face Verification
-                                </h6>
-                                <p class="card-text small text-muted">
-                                    Position your face in the camera and click "Capture Face"
-                                </p>
-                                <video id="video" width="100%" height="300" autoplay class="border rounded mb-2"></video>
-                                <canvas id="canvas" style="display: none;"></canvas>
-                                <button type="button" class="btn btn-primary w-100" id="captureBtn">
-                                    <i class="bi bi-camera"></i> Capture Face
-                                </button>
-                                <div id="faceStatus" class="mt-2"></div>
-                            </div>
-                        </div>
+                    <button type="button" class="btn btn-primary" id="startCamera">
+                        <i class="bi bi-camera-video"></i> Start Camera
+                    </button>
 
-                        <div id="alertMessage"></div>
+                    <button type="button" class="btn btn-primary" id="captureBtn" disabled>
+                        <i class="bi bi-camera"></i> Capture and Verify
+                    </button>
+                </form>
 
-                        <button type="submit" class="btn btn-primary w-100 btn-lg" id="submitBtn">
-                            <i class="bi bi-box-arrow-in-right"></i> Login
-                        </button>
-                    </form>
-
-                    <p class="text-center mt-3 mb-0">
-                        Don't have an account? <a href="{{ url_for('signup') }}">Sign up here</a>
-                    </p>
+                <div class="link-text">
+                    New user? <a href="/signup">Register here</a>
                 </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
 
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/login.js') }}"></script>
-{% endblock %}
+    <script>
+        let stream = null;
+        let imageCaptured = false;
+
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startCameraBtn = document.getElementById('startCamera');
+        const captureBtn = document.getElementById('captureBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const scanOverlay = document.getElementById('scanOverlay');
+        const alertMessage = document.getElementById('alertMessage');
+
+        startCameraBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                startCameraBtn.disabled = true;
+                captureBtn.disabled = false;
+                showAlert('Camera active - Ready to capture', 'success');
+            } catch (error) {
+                showAlert('Unable to access camera. Please grant permissions.', 'danger');
+            }
+        });
+
+        captureBtn.addEventListener('click', async () => {
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+
+            scanOverlay.classList.add('active');
+            captureBtn.disabled = true;
+            captureBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Capturing...';
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showAlert('Please enter both username and password', 'danger');
+                scanOverlay.classList.remove('active');
+                captureBtn.disabled = false;
+                captureBtn.innerHTML = '<i class="bi bi-camera"></i> Capture and Verify';
+                return;
+            }
+
+            setTimeout(async () => {
+                scanOverlay.classList.remove('active');
+                const faceImage = canvas.toDataURL('image/jpeg');
+
+                captureBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying...';
+
+                try {
+                    const response = await fetch('/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, face_image: faceImage })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        showAlert('✓ Login successful! Redirecting...', 'success');
+                        captureBtn.innerHTML = '<i class="bi bi-check-circle"></i> Verified';
+                        setTimeout(() => window.location.href = data.redirect, 1500);
+                    } else {
+                        showAlert(data.message || 'Login failed', 'danger');
+                        captureBtn.disabled = false;
+                        captureBtn.innerHTML = '<i class="bi bi-camera"></i> Capture and Verify';
+                        startCameraBtn.disabled = false;
+                    }
+                } catch (error) {
+                    showAlert('An error occurred during login', 'danger');
+                    captureBtn.disabled = false;
+                    captureBtn.innerHTML = '<i class="bi bi-camera"></i> Capture and Verify';
+                    startCameraBtn.disabled = false;
+                } finally {
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                        video.srcObject = null;
+                    }
+                }
+            }, 2000);
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+        });
+
+        function showAlert(message, type) {
+            alertMessage.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => alertMessage.innerHTML = '', 5000);
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

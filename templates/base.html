@@ -18,7 +18,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">
+            <a class="navbar-brand" href="{% if session.get('user_id') %}{{ url_for('welcome') }}{% else %}/{% endif %}">
                 <i class="bi bi-shield-lock-fill"></i> SecureVision
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -30,6 +30,11 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('dashboard') }}">
                                 <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('apps') }}">
+                                <i class="bi bi-grid-3x3-gap"></i> Access My Apps
                             </a>
                         </li>
                         <li class="nav-item">

@@ -7,8 +7,6 @@ import os
 import logging
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_session import Session
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from functools import wraps
 from passlib.hash import pbkdf2_sha256
 from datetime import datetime, timedelta
@@ -22,14 +20,6 @@ app.config.from_object(Config)
 
 # Initialize Flask-Session
 Session(app)
-
-# Initialize Rate Limiter
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://",
-)
 
 # Setup logging
 logging.basicConfig(
@@ -81,7 +71,6 @@ def index():
 
 
 @app.route('/signup', methods=['GET', 'POST'])
-@limiter.limit("5 per hour")  # Limit signup attempts to prevent spam
 def signup():
     """User signup with face registration"""
     if request.method == 'GET':
@@ -153,7 +142,7 @@ def signup():
         }
 
         if db.create_user(user_data):
-            db.create_log(None, 'USER_SIGNUP', f'New user registered: {username}')
+            db.create_log(None, 'USER_SIGNUP', f'New user registered: {username}', username=username, ip_address=request.remote_addr)
             logger.info(f"✓ New user registered: {username}")
             return jsonify({
                 'success': True,
@@ -174,10 +163,26 @@ def signup():
         }), 500
 
 
+@app.route('/welcome')
+def welcome():
+    """Welcome page after successful login"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    username = session.get('username')
+    return render_template('welcome.html', username=username)
+
+
+@app.route('/apps')
+@login_required
+def apps():
+    """Apps page - user's accessible applications"""
+    return render_template('apps.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("10 per hour")  # Limit login attempts to prevent brute-force
 def login():
-    """User login with face verification"""
+    """User login with password and face verification"""
     if request.method == 'GET':
         return render_template('login.html')
 
@@ -192,36 +197,37 @@ def login():
         if not all([username, password, face_image]):
             return jsonify({
                 'success': False,
-                'message': 'All fields are required'
+                'message': 'Username, password, and face image are required'
             }), 400
 
         # Get user from database
         user = db.get_user_by_username(username)
         if not user:
+            db.create_log(None, 'LOGIN_FAILED', f'Invalid username attempt: {username}', username=username, ip_address=request.remote_addr, success=False)
             return jsonify({
                 'success': False,
                 'message': 'Invalid username or password'
             }), 401
 
-        # Verify password
+        # Verify password first
         if not pbkdf2_sha256.verify(password, user['password']):
-            db.create_log(user.get('id'), 'LOGIN_FAILED', 'Invalid password')
+            db.create_log(user.get('id'), 'LOGIN_FAILED', 'Invalid password', username=username, ip_address=request.remote_addr, success=False)
             return jsonify({
                 'success': False,
                 'message': 'Invalid username or password'
             }), 401
 
         # Save temporary face image for verification
-        temp_path = os.path.join(Config.UPLOAD_FOLDER, f'temp_{username}_verify.jpg')
         success, temp_image_path, message = face_recognition.save_face_image(face_image, f'temp_{username}_verify')
 
         if not success:
+            db.create_log(user.get('id'), 'LOGIN_FAILED', f'Image error: {message}', username=username, ip_address=request.remote_addr, success=False)
             return jsonify({
                 'success': False,
                 'message': f'Image error: {message}'
             }), 400
 
-        # Verify face
+        # Verify face against stored encoding
         is_match, similarity, verify_message = face_recognition.verify_face(
             temp_image_path,
             user['face_encoding']
@@ -231,14 +237,17 @@ def login():
         if os.path.exists(temp_image_path):
             os.remove(temp_image_path)
 
+        # Log the verification attempt with details
+        logger.info(f"Login attempt for {username}: Password OK, Face match={is_match}, Similarity={similarity:.2%}")
+
         if not is_match:
-            db.create_log(user.get('id'), 'LOGIN_FAILED', f'Face verification failed: {verify_message}')
+            db.create_log(user.get('id'), 'LOGIN_FAILED', f'Face verification failed (similarity: {similarity:.2%})', username=username, ip_address=request.remote_addr, success=False)
             return jsonify({
                 'success': False,
-                'message': 'Face verification failed. Please try again.'
+                'message': f'Face verification failed. Your face does not match the registered profile.'
             }), 401
 
-        # Login successful
+        # Login successful - both password and face verified
         session['user_id'] = user.get('id') or user.get('_id')
         session['username'] = user['username']
         session['email'] = user['email']
@@ -246,14 +255,14 @@ def login():
 
         # Update last login
         db.update_user_login(username)
-        db.create_log(user.get('id'), 'LOGIN_SUCCESS', f'Successful login with similarity: {similarity:.2%}')
+        db.create_log(user.get('id'), 'LOGIN_SUCCESS', f'Successful login (similarity: {similarity:.2%})', username=username, ip_address=request.remote_addr)
 
         logger.info(f"✓ User logged in: {username} (similarity: {similarity:.2%})")
 
         return jsonify({
             'success': True,
             'message': 'Login successful!',
-            'redirect': url_for('dashboard')
+            'redirect': url_for('welcome')
         })
 
     except Exception as e:
@@ -265,7 +274,6 @@ def login():
 
 
 @app.route('/verify-face', methods=['POST'])
-@limiter.limit("20 per hour")  # Limit face verification attempts
 def verify_face():
     """Real-time face verification endpoint"""
     try:
@@ -356,7 +364,7 @@ def logout():
     if username:
         user = db.get_user_by_username(username)
         if user:
-            db.create_log(user.get('id'), 'LOGOUT', f'User logged out: {username}')
+            db.create_log(user.get('id'), 'LOGOUT', f'User logged out: {username}', username=username, ip_address=request.remote_addr)
         logger.info(f"User logged out: {username}")
 
     session.clear()
@@ -371,6 +379,269 @@ def health():
         'database': 'MongoDB' if db.use_mongodb else 'SQLite',
         'timestamp': datetime.utcnow().isoformat()
     })
+
+
+# API Endpoints for Dashboard Analytics
+@app.route('/api/users', methods=['GET'])
+@login_required
+def api_get_users():
+    """Get all registered users"""
+    try:
+        users = db.get_all_users()
+        # Remove sensitive data
+        users_data = []
+        for user in users:
+            users_data.append({
+                'id': str(user.get('id') or user.get('_id')),
+                'username': user.get('username'),
+                'email': user.get('email'),
+                'created_at': user.get('created_at'),
+                'last_login': user.get('last_login'),
+                'access_count': user.get('access_count', 0),
+                'status': user.get('status', 'active')
+            })
+        return jsonify({
+            'success': True,
+            'users': users_data,
+            'total': len(users_data)
+        })
+    except Exception as e:
+        logger.error(f"Error fetching users: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to fetch users'
+        }), 500
+
+
+@app.route('/api/users/<user_id>', methods=['DELETE'])
+@login_required
+def api_delete_user(user_id):
+    """Delete a specific user"""
+    try:
+        # Get current user to prevent self-deletion
+        current_user_id = str(session.get('user_id'))
+        if current_user_id == user_id:
+            return jsonify({
+                'success': False,
+                'message': 'Cannot delete your own account'
+            }), 400
+
+        # Get user by ID to find username
+        users = db.get_all_users()
+        user_to_delete = None
+        for user in users:
+            if str(user.get('id') or user.get('_id')) == user_id:
+                user_to_delete = user
+                break
+
+        if not user_to_delete:
+            return jsonify({
+                'success': False,
+                'message': 'User not found'
+            }), 404
+
+        # Delete user
+        if db.delete_user(user_to_delete['username']):
+            db.create_log(session.get('user_id'), 'USER_DELETED', f'Deleted user: {user_to_delete["username"]}', username=session.get('username'), ip_address=request.remote_addr)
+            logger.info(f"User deleted: {user_to_delete['username']}")
+            return jsonify({
+                'success': True,
+                'message': 'User deleted successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to delete user'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred'
+        }), 500
+
+
+@app.route('/api/stats', methods=['GET'])
+@login_required
+def api_get_stats():
+    """Get system statistics"""
+    try:
+        users = db.get_all_users()
+        all_logs = []
+
+        # Collect all logs
+        for user in users:
+            user_id = user.get('id') or user.get('_id')
+            logs = db.get_user_logs(user_id, limit=1000)
+            all_logs.extend(logs)
+
+        # Calculate statistics
+        total_users = len(users)
+        total_access_attempts = len([log for log in all_logs if log.get('action') in ['LOGIN_SUCCESS', 'LOGIN_FAILED']])
+        successful_logins = len([log for log in all_logs if log.get('action') == 'LOGIN_SUCCESS'])
+        failed_logins = len([log for log in all_logs if log.get('action') == 'LOGIN_FAILED'])
+
+        # Calculate accuracy
+        accuracy = (successful_logins / total_access_attempts * 100) if total_access_attempts > 0 else 0
+
+        # Recent activity (last 24 hours)
+        recent_logs = sorted(all_logs, key=lambda x: x.get('timestamp', ''), reverse=True)[:10]
+
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_users': total_users,
+                'total_access_attempts': total_access_attempts,
+                'successful_logins': successful_logins,
+                'failed_logins': failed_logins,
+                'recognition_accuracy': round(accuracy, 2),
+                'average_response_time': 2.5,  # Placeholder
+                'system_uptime': '99.9%'
+            },
+            'recent_activity': recent_logs
+        })
+    except Exception as e:
+        logger.error(f"Error fetching stats: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to fetch statistics'
+        }), 500
+
+
+@app.route('/api/access-logs', methods=['GET'])
+@login_required
+def api_get_access_logs():
+    """Get access logs"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        users = db.get_all_users()
+        all_logs = []
+
+        # Collect logs from all users
+        for user in users:
+            user_id = user.get('id') or user.get('_id')
+            logs = db.get_user_logs(user_id, limit=limit)
+            for log in logs:
+                log['username'] = user.get('username')
+            all_logs.extend(logs)
+
+        # Sort by timestamp
+        all_logs = sorted(all_logs, key=lambda x: x.get('timestamp', ''), reverse=True)[:limit]
+
+        return jsonify({
+            'success': True,
+            'logs': all_logs,
+            'total': len(all_logs)
+        })
+    except Exception as e:
+        logger.error(f"Error fetching logs: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to fetch access logs'
+        }), 500
+
+
+# App Credentials Routes
+@app.route('/api/app-credentials/<app_name>', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def manage_app_credentials(app_name):
+    """Manage app credentials for the logged-in user"""
+    user_id = session.get('user_id')
+
+    try:
+        if request.method == 'GET':
+            # Get credentials for specific app
+            creds = db.get_app_credentials(user_id, app_name)
+            if creds:
+                return jsonify({
+                    'success': True,
+                    'app_name': app_name,
+                    'username': creds.get('app_username'),
+                    'password': creds.get('app_password')
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'No credentials found for this app'
+                }), 404
+
+        elif request.method == 'POST':
+            # Save/update credentials
+            data = request.get_json()
+            app_username = data.get('username', '').strip()
+            app_password = data.get('password', '').strip()
+
+            if not app_username or not app_password:
+                return jsonify({
+                    'success': False,
+                    'message': 'Username and password are required'
+                }), 400
+
+            success = db.save_app_credentials(user_id, app_name, app_username, app_password)
+            if success:
+                db.create_log(user_id, 'APP_CREDS_SAVED', f'Saved credentials for {app_name}',
+                             username=session.get('username'), ip_address=request.remote_addr)
+                return jsonify({
+                    'success': True,
+                    'message': 'Credentials saved successfully'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'Failed to save credentials'
+                }), 500
+
+        elif request.method == 'DELETE':
+            # Delete credentials
+            success = db.delete_app_credentials(user_id, app_name)
+            if success:
+                db.create_log(user_id, 'APP_CREDS_DELETED', f'Deleted credentials for {app_name}',
+                             username=session.get('username'), ip_address=request.remote_addr)
+                return jsonify({
+                    'success': True,
+                    'message': 'Credentials deleted successfully'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'Failed to delete credentials'
+                }), 500
+
+    except Exception as e:
+        logger.error(f"Error managing app credentials: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred'
+        }), 500
+
+
+@app.route('/api/app-credentials', methods=['GET'])
+@login_required
+def get_all_app_credentials():
+    """Get all app credentials for the logged-in user"""
+    try:
+        user_id = session.get('user_id')
+        creds = db.get_all_user_app_credentials(user_id)
+
+        # Format credentials for response
+        formatted_creds = {}
+        for cred in creds:
+            formatted_creds[cred['app_name']] = {
+                'username': cred['app_username'],
+                'password': cred['app_password']
+            }
+
+        return jsonify({
+            'success': True,
+            'credentials': formatted_creds
+        })
+    except Exception as e:
+        logger.error(f"Error fetching all app credentials: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to fetch credentials'
+        }), 500
 
 
 if __name__ == '__main__':

@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureVision AI - My Apps</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Animated Background */
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.1;
+        }
+
+        .floating-orb {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .floating-orb:nth-child(1) { width: 100px; height: 100px; top: 20%; left: 10%; animation-delay: 0s; }
+        .floating-orb:nth-child(2) { width: 150px; height: 150px; top: 60%; right: 15%; animation-delay: 2s; }
+        .floating-orb:nth-child(3) { width: 80px; height: 80px; bottom: 20%; left: 70%; animation-delay: 4s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+            padding: 1rem 2rem;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #a0a0a0;
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .nav-links a:hover {
+            color: #00d4ff;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 6rem 2rem 2rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #ffffff, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        .page-subtitle {
+            font-size: 1.1rem;
+            color: #a0a0a0;
+            margin-bottom: 3rem;
+            line-height: 1.6;
+        }
+
+        /* Apps Grid */
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .app-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #0099cc, #00d4ff);
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .app-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .app-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .app-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #ffffff;
+        }
+
+        .app-description {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            margin-bottom: 1.5rem;
+            line-height: 1.4;
+        }
+
+        .btn-open {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: #ffffff;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-open::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.2);
+            transition: width 0.4s ease, height 0.4s ease, top 0.4s ease, left 0.4s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        .btn-open:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-open span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-open:hover {
+            color: #00d4ff;
+        }
+
+        .btn-manage {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: transparent;
+            color: #a0a0a0;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+
+        .btn-manage:hover {
+            color: #00d4ff;
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+        }
+
+        .modal-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #0099cc, #00d4ff);
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-subtitle {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 1rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.2);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn-modal {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary-modal {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            color: #ffffff;
+        }
+
+        .btn-primary-modal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary-modal {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary-modal:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .page-title { font-size: 2rem; }
+            .apps-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
+            .nav-links { gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="animated-bg">
+        <div class="floating-orb"></div>
+        <div class="floating-orb"></div>
+        <div class="floating-orb"></div>
+    </div>
+
+    <header class="header">
+        <div class="nav-container">
+            <div class="logo">SecureVision AI</div>
+            <div class="nav-links">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">My Apps</h1>
+        <p class="page-subtitle">Access your favorite applications securely with facial recognition</p>
+
+        <div class="apps-grid">
+            <!-- Instagram -->
+            <div class="app-card">
+                <span class="app-icon">📷</span>
+                <h3 class="app-name">Instagram</h3>
+                <p class="app-description">Share photos and connect with friends</p>
+                <button class="btn-open" onclick="openApp('Instagram', 'https://www.instagram.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Instagram')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- Facebook -->
+            <div class="app-card">
+                <span class="app-icon">👥</span>
+                <h3 class="app-name">Facebook</h3>
+                <p class="app-description">Connect with friends and the world</p>
+                <button class="btn-open" onclick="openApp('Facebook', 'https://www.facebook.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Facebook')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- Twitter -->
+            <div class="app-card">
+                <span class="app-icon">🐦</span>
+                <h3 class="app-name">Twitter</h3>
+                <p class="app-description">See what's happening in the world</p>
+                <button class="btn-open" onclick="openApp('Twitter', 'https://www.twitter.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Twitter')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- LinkedIn -->
+            <div class="app-card">
+                <span class="app-icon">💼</span>
+                <h3 class="app-name">LinkedIn</h3>
+                <p class="app-description">Professional networking platform</p>
+                <button class="btn-open" onclick="openApp('LinkedIn', 'https://www.linkedin.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('LinkedIn')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- YouTube -->
+            <div class="app-card">
+                <span class="app-icon">📺</span>
+                <h3 class="app-name">YouTube</h3>
+                <p class="app-description">Watch and share videos</p>
+                <button class="btn-open" onclick="openApp('YouTube', 'https://www.youtube.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('YouTube')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- Gmail -->
+            <div class="app-card">
+                <span class="app-icon">📧</span>
+                <h3 class="app-name">Gmail</h3>
+                <p class="app-description">Email that's intuitive and efficient</p>
+                <button class="btn-open" onclick="openApp('Gmail', 'https://mail.google.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Gmail')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- GitHub -->
+            <div class="app-card">
+                <span class="app-icon">💻</span>
+                <h3 class="app-name">GitHub</h3>
+                <p class="app-description">Code hosting and collaboration</p>
+                <button class="btn-open" onclick="openApp('GitHub', 'https://www.github.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('GitHub')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- Spotify -->
+            <div class="app-card">
+                <span class="app-icon">🎵</span>
+                <h3 class="app-name">Spotify</h3>
+                <p class="app-description">Music for everyone</p>
+                <button class="btn-open" onclick="openApp('Spotify', 'https://www.spotify.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Spotify')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- Netflix -->
+            <div class="app-card">
+                <span class="app-icon">🎬</span>
+                <h3 class="app-name">Netflix</h3>
+                <p class="app-description">Watch TV shows and movies</p>
+                <button class="btn-open" onclick="openApp('Netflix', 'https://www.netflix.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Netflix')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- Amazon -->
+            <div class="app-card">
+                <span class="app-icon">🛒</span>
+                <h3 class="app-name">Amazon</h3>
+                <p class="app-description">Shop online for anything</p>
+                <button class="btn-open" onclick="openApp('Amazon', 'https://www.amazon.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Amazon')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- WhatsApp -->
+            <div class="app-card">
+                <span class="app-icon">💬</span>
+                <h3 class="app-name">WhatsApp</h3>
+                <p class="app-description">Simple, secure messaging</p>
+                <button class="btn-open" onclick="openApp('WhatsApp', 'https://web.whatsapp.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('WhatsApp')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+
+            <!-- Reddit -->
+            <div class="app-card">
+                <span class="app-icon">🔴</span>
+                <h3 class="app-name">Reddit</h3>
+                <p class="app-description">The front page of the internet</p>
+                <button class="btn-open" onclick="openApp('Reddit', 'https://www.reddit.com')">
+                    <span>Open</span>
+                </button>
+                <button class="btn-manage" onclick="openManageModal('Reddit')">
+                    <span>⚙️ Manage App</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Managing App Credentials -->
+    <div id="manageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Manage <span id="modalAppName"></span></h2>
+                <p class="modal-subtitle">Save your credentials for quick access</p>
+            </div>
+            <form id="credentialsForm">
+                <div class="form-group">
+                    <label class="form-label">Username / Email</label>
+                    <input type="text" id="appUsername" class="form-input" placeholder="Enter your username or email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="appPassword" class="form-input" placeholder="Enter your password" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-modal btn-primary-modal">💾 Save Credentials</button>
+                    <button type="button" class="btn-modal btn-secondary-modal" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentApp = '';
+        let allCredentials = {};
+
+        // Load all saved credentials on page load
+        async function loadAllCredentials() {
+            try {
+                const response = await fetch('/api/app-credentials');
+                const data = await response.json();
+
+                if (data.success) {
+                    allCredentials = data.credentials;
+                }
+            } catch (error) {
+                console.error('Error loading credentials:', error);
+            }
+        }
+
+        // Open manage modal
+        async function openManageModal(appName) {
+            currentApp = appName;
+            document.getElementById('modalAppName').textContent = appName;
+
+            // Load existing credentials if any
+            try {
+                const response = await fetch(`/api/app-credentials/${appName}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('appUsername').value = data.username || '';
+                    document.getElementById('appPassword').value = data.password || '';
+                } else {
+                    document.getElementById('appUsername').value = '';
+                    document.getElementById('appPassword').value = '';
+                }
+            } catch (error) {
+                document.getElementById('appUsername').value = '';
+                document.getElementById('appPassword').value = '';
+            }
+
+            document.getElementById('manageModal').classList.add('active');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('manageModal').classList.remove('active');
+            document.getElementById('credentialsForm').reset();
+        }
+
+        // Handle form submission
+        document.getElementById('credentialsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('appUsername').value;
+            const password = document.getElementById('appPassword').value;
+
+            try {
+                const response = await fetch(`/api/app-credentials/${currentApp}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('✓ Credentials saved successfully!');
+                    allCredentials[currentApp] = { username, password };
+                    closeModal();
+                } else {
+                    alert('Failed to save credentials: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error saving credentials:', error);
+                alert('An error occurred while saving credentials');
+            }
+        });
+
+        // Open app with credentials
+        function openApp(appName, url) {
+            if (allCredentials[appName]) {
+                const creds = allCredentials[appName];
+                const message = `Opening ${appName}...\n\nSaved credentials:\nUsername: ${creds.username}\nPassword: ${creds.password}\n\nNote: You'll need to manually enter these on the website due to browser security restrictions.`;
+                alert(message);
+            }
+            window.open(url, '_blank');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('manageModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            loadAllCredentials();
+
+            // Add staggered animation
+            const cards = document.querySelectorAll('.app-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100 * index);
+            });
+        });
+    </script>
+</body>
+</html>
