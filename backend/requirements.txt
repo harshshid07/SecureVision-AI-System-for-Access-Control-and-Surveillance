@@ -1,0 +1,26 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-dotenv==1.0.1
+supabase==2.9.1
+pydantic==2.9.2
+pydantic-settings==2.6.0
+
+# AI & Vision
+deepface==0.0.93
+tf-keras==2.18.0
+opencv-python==4.10.0.84
+retina-face==0.0.17
+
+# PyTorch for anti-spoofing (CPU version)
+# Install with: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+
+# Authentication
+python-jose[cryptography]==3.3.0
+bcrypt==4.1.2
+python-multipart==0.0.12
+
+# Utilities
+numpy==1.26.4
+Pillow==11.0.0

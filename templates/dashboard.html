@@ -333,7 +333,7 @@
         <div class="nav-container">
             <div class="logo">SecureVision AI</div>
             <div class="nav-links">
-                <a href="/apps">Access My Apps</a>
+                <a href="{{ url_for('apps', username=session.get('username')) }}">Access My Apps</a>
                 <a href="/logout">Logout</a>
             </div>
         </div>
@@ -544,6 +544,9 @@
                         `;
                         tbody.appendChild(row);
                     });
+
+                    // Update activity chart with real data
+                    initActivityChart(allLogs);
                 }
             } catch (error) {
                 console.error('Error loading logs:', error);
@@ -551,11 +554,32 @@
         }
 
         // Initialize activity chart
-        function initActivityChart() {
+        function initActivityChart(logs) {
             const ctx = document.getElementById('activityChart').getContext('2d');
 
-            const hours = Array.from({length: 24}, (_, i) => `${i}:00`);
-            const data = Array.from({length: 24}, () => Math.floor(Math.random() * 10));
+            const hours = Array.from({ length: 24 }, (_, i) => {
+                const hour = new Date();
+                hour.setHours(hour.getHours() - (23 - i));
+                return `${hour.getHours()}:00`;
+            });
+
+            const data = Array.from({ length: 24 }, () => 0);
+            const now = new Date();
+
+            if (logs) {
+                logs.forEach(log => {
+                    const logDate = new Date(log.timestamp);
+                    const diffHours = Math.floor((now - logDate) / (1000 * 60 * 60));
+                    if (diffHours < 24) {
+                        const hourIndex = 23 - diffHours;
+                        data[hourIndex]++;
+                    }
+                });
+            }
+
+            if (activityChart) {
+                activityChart.destroy();
+            }
 
             activityChart = new Chart(ctx, {
                 type: 'line',
@@ -789,7 +813,6 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            initActivityChart();
             loadStats();
             loadLogs();
             loadUsers();

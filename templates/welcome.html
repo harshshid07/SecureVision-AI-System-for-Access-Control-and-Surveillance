@@ -250,10 +250,10 @@
             <p class="welcome-message">You've successfully registered with SecureVision AI. Your facial recognition profile is now active and ready to use.</p>
 
             <div class="button-group">
-                <a href="/dashboard" class="btn">
+                <a href="{{ url_for('dashboard', username=username) }}" class="btn">
                     <span>View My Dashboard</span>
                 </a>
-                <a href="/apps" class="btn">
+                <a href="{{ url_for('apps', username=username) }}" class="btn">
                     <span>Access My Apps</span>
                 </a>
             </div>

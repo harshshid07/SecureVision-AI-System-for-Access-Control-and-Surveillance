@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SecureVision AI - My Apps</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         * {
             margin: 0;
@@ -366,6 +367,17 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
+        .btn-danger-modal {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 1px solid rgba(255, 68, 68, 0.4);
+        }
+
+        .btn-danger-modal:hover {
+            background: rgba(255, 68, 68, 0.4);
+            color: #ffffff;
+        }
+
         @media (max-width: 768px) {
             .page-title { font-size: 2rem; }
             .apps-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
@@ -384,7 +396,7 @@
         <div class="nav-container">
             <div class="logo">SecureVision AI</div>
             <div class="nav-links">
-                <a href="/dashboard">Dashboard</a>
+                <a href="{{ url_for('dashboard', username=session.get('username')) }}">Dashboard</a>
                 <a href="/logout">Logout</a>
             </div>
         </div>
@@ -397,7 +409,7 @@
         <div class="apps-grid">
             <!-- Instagram -->
             <div class="app-card">
-                <span class="app-icon">📷</span>
+                <i class="app-icon fa-brands fa-instagram"></i>
                 <h3 class="app-name">Instagram</h3>
                 <p class="app-description">Share photos and connect with friends</p>
                 <button class="btn-open" onclick="openApp('Instagram', 'https://www.instagram.com')">
@@ -410,7 +422,7 @@
 
             <!-- Facebook -->
             <div class="app-card">
-                <span class="app-icon">👥</span>
+                <i class="app-icon fa-brands fa-facebook"></i>
                 <h3 class="app-name">Facebook</h3>
                 <p class="app-description">Connect with friends and the world</p>
                 <button class="btn-open" onclick="openApp('Facebook', 'https://www.facebook.com')">
@@ -423,7 +435,7 @@
 
             <!-- Twitter -->
             <div class="app-card">
-                <span class="app-icon">🐦</span>
+                <i class="app-icon fa-brands fa-twitter"></i>
                 <h3 class="app-name">Twitter</h3>
                 <p class="app-description">See what's happening in the world</p>
                 <button class="btn-open" onclick="openApp('Twitter', 'https://www.twitter.com')">
@@ -436,7 +448,7 @@
 
             <!-- LinkedIn -->
             <div class="app-card">
-                <span class="app-icon">💼</span>
+                <i class="app-icon fa-brands fa-linkedin"></i>
                 <h3 class="app-name">LinkedIn</h3>
                 <p class="app-description">Professional networking platform</p>
                 <button class="btn-open" onclick="openApp('LinkedIn', 'https://www.linkedin.com')">
@@ -449,7 +461,7 @@
 
             <!-- YouTube -->
             <div class="app-card">
-                <span class="app-icon">📺</span>
+                <i class="app-icon fa-brands fa-youtube"></i>
                 <h3 class="app-name">YouTube</h3>
                 <p class="app-description">Watch and share videos</p>
                 <button class="btn-open" onclick="openApp('YouTube', 'https://www.youtube.com')">
@@ -462,7 +474,7 @@
 
             <!-- Gmail -->
             <div class="app-card">
-                <span class="app-icon">📧</span>
+                <i class="app-icon fa-solid fa-envelope"></i>
                 <h3 class="app-name">Gmail</h3>
                 <p class="app-description">Email that's intuitive and efficient</p>
                 <button class="btn-open" onclick="openApp('Gmail', 'https://mail.google.com')">
@@ -475,7 +487,7 @@
 
             <!-- GitHub -->
             <div class="app-card">
-                <span class="app-icon">💻</span>
+                <i class="app-icon fa-brands fa-github"></i>
                 <h3 class="app-name">GitHub</h3>
                 <p class="app-description">Code hosting and collaboration</p>
                 <button class="btn-open" onclick="openApp('GitHub', 'https://www.github.com')">
@@ -488,7 +500,7 @@
 
             <!-- Spotify -->
             <div class="app-card">
-                <span class="app-icon">🎵</span>
+                <i class="app-icon fa-brands fa-spotify"></i>
                 <h3 class="app-name">Spotify</h3>
                 <p class="app-description">Music for everyone</p>
                 <button class="btn-open" onclick="openApp('Spotify', 'https://www.spotify.com')">
@@ -501,7 +513,7 @@
 
             <!-- Netflix -->
             <div class="app-card">
-                <span class="app-icon">🎬</span>
+                <i class="app-icon fa-solid fa-film"></i>
                 <h3 class="app-name">Netflix</h3>
                 <p class="app-description">Watch TV shows and movies</p>
                 <button class="btn-open" onclick="openApp('Netflix', 'https://www.netflix.com')">
@@ -514,7 +526,7 @@
 
             <!-- Amazon -->
             <div class="app-card">
-                <span class="app-icon">🛒</span>
+                <i class="app-icon fa-brands fa-amazon"></i>
                 <h3 class="app-name">Amazon</h3>
                 <p class="app-description">Shop online for anything</p>
                 <button class="btn-open" onclick="openApp('Amazon', 'https://www.amazon.com')">
@@ -527,7 +539,7 @@
 
             <!-- WhatsApp -->
             <div class="app-card">
-                <span class="app-icon">💬</span>
+                <i class="app-icon fa-brands fa-whatsapp"></i>
                 <h3 class="app-name">WhatsApp</h3>
                 <p class="app-description">Simple, secure messaging</p>
                 <button class="btn-open" onclick="openApp('WhatsApp', 'https://web.whatsapp.com')">
@@ -540,7 +552,7 @@
 
             <!-- Reddit -->
             <div class="app-card">
-                <span class="app-icon">🔴</span>
+                <i class="app-icon fa-brands fa-reddit"></i>
                 <h3 class="app-name">Reddit</h3>
                 <p class="app-description">The front page of the internet</p>
                 <button class="btn-open" onclick="openApp('Reddit', 'https://www.reddit.com')">
@@ -570,7 +582,8 @@
                     <input type="password" id="appPassword" class="form-input" placeholder="Enter your password" required>
                 </div>
                 <div class="modal-actions">
-                    <button type="submit" class="btn-modal btn-primary-modal">💾 Save Credentials</button>
+                    <button type="submit" class="btn-modal btn-primary-modal">Save Credentials</button>
+                    <button type="button" class="btn-modal btn-danger-modal" id="deleteCredentialsBtn" style="display: none;">🗑️ Delete</button>
                     <button type="button" class="btn-modal btn-secondary-modal" onclick="closeModal()">Cancel</button>
                 </div>
             </form>
@@ -599,6 +612,7 @@
         async function openManageModal(appName) {
             currentApp = appName;
             document.getElementById('modalAppName').textContent = appName;
+            const deleteBtn = document.getElementById('deleteCredentialsBtn');
 
             // Load existing credentials if any
             try {
@@ -608,13 +622,17 @@
                 if (data.success) {
                     document.getElementById('appUsername').value = data.username || '';
                     document.getElementById('appPassword').value = data.password || '';
+                    deleteBtn.style.display = 'block';
+                    deleteBtn.onclick = () => deleteCredentials(appName);
                 } else {
                     document.getElementById('appUsername').value = '';
                     document.getElementById('appPassword').value = '';
+                    deleteBtn.style.display = 'none';
                 }
             } catch (error) {
                 document.getElementById('appUsername').value = '';
                 document.getElementById('appPassword').value = '';
+                deleteBtn.style.display = 'none';
             }
 
             document.getElementById('manageModal').classList.add('active');
@@ -624,6 +642,32 @@
         function closeModal() {
             document.getElementById('manageModal').classList.remove('active');
             document.getElementById('credentialsForm').reset();
+        }
+
+        // Delete credentials
+        async function deleteCredentials(appName) {
+            if (!confirm(`Are you sure you want to delete your credentials for ${appName}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/app-credentials/${appName}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('✓ Credentials deleted successfully!');
+                    delete allCredentials[appName];
+                    closeModal();
+                } else {
+                    alert('Failed to delete credentials: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error deleting credentials:', error);
+                alert('An error occurred while deleting credentials');
+            }
         }
 
         // Handle form submission
@@ -664,7 +708,13 @@
         function openApp(appName, url) {
             if (allCredentials[appName]) {
                 const creds = allCredentials[appName];
-                const message = `Opening ${appName}...\n\nSaved credentials:\nUsername: ${creds.username}\nPassword: ${creds.password}\n\nNote: You'll need to manually enter these on the website due to browser security restrictions.`;
+                const message = `Opening ${appName}...
+
+Saved credentials:
+Username: ${creds.username}
+Password: ${creds.password}
+
+Note: You'll need to manually enter these on the website due to browser security restrictions.`;
                 alert(message);
             }
             window.open(url, '_blank');

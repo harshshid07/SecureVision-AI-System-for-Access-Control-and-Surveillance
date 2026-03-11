@@ -191,13 +191,12 @@ def login():
 
         # Validate input
         username = data.get('username', '').strip()
-        password = data.get('password', '').strip()
         face_image = data.get('face_image', '')
 
-        if not all([username, password, face_image]):
+        if not all([username, face_image]):
             return jsonify({
                 'success': False,
-                'message': 'Username, password, and face image are required'
+                'message': 'Username and face image are required'
             }), 400
 
         # Get user from database
@@ -206,15 +205,7 @@ def login():
             db.create_log(None, 'LOGIN_FAILED', f'Invalid username attempt: {username}', username=username, ip_address=request.remote_addr, success=False)
             return jsonify({
                 'success': False,
-                'message': 'Invalid username or password'
-            }), 401
-
-        # Verify password first
-        if not pbkdf2_sha256.verify(password, user['password']):
-            db.create_log(user.get('id'), 'LOGIN_FAILED', 'Invalid password', username=username, ip_address=request.remote_addr, success=False)
-            return jsonify({
-                'success': False,
-                'message': 'Invalid username or password'
+                'message': 'Invalid username'
             }), 401
 
         # Save temporary face image for verification

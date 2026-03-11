@@ -1,0 +1,10 @@
+# SecureVision Safe Kiosk Requirements
+# Fixed for Windows compatibility
+
+# Option 1: Try latest stable PyQt6 (RECOMMENDED)
+PyQt6>=6.7.0
+PyQt6-WebEngine>=6.7.0
+
+# If PyQt6 fails, uncomment these for PyQt5 (fallback):
+# PyQt5==5.15.10
+# PyQtWebEngine==5.15.6

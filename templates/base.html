@@ -28,13 +28,12 @@
                 <ul class="navbar-nav ms-auto">
                     {% if session.get('user_id') %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('dashboard') }}">
-                                <i class="bi bi-speedometer2"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('apps') }}">
-                                <i class="bi bi-grid-3x3-gap"></i> Access My Apps
+            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('apps') }}">                                <i class="bi bi-grid-3x3-gap"></i> Access My Apps
                             </a>
                         </li>
                         <li class="nav-item">
