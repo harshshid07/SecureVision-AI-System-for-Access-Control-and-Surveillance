@@ -1,6 +1,6 @@
 # SecureVision - Complete Project Documentation
 
-> **Last Updated:** [2026-02-03]  
+> **Last Updated:** [2026-03-11]  
 > This document is actively maintained and updated with every major change.
 
 ---
@@ -24,7 +24,7 @@
 
 ## Project Overview
 
-**SecureVision** is an enterprise-grade facial recognition authentication system designed for secure kiosk environments. It uses AI-powered face detection and matching to authenticate users without passwords.
+**SecureVision** is an enterprise-grade facial recognition authentication and **real-time surveillance** system designed for secure kiosk environments. It uses AI-powered face detection and matching to authenticate users, track attendance, and detect unauthorized access.
 
 ### Key Features
 - 🔐 Facial recognition login (no passwords for users)
@@ -33,6 +33,9 @@
 - 📊 Admin dashboard for user management
 - 🖥️ Locked kiosk mode for public terminals
 - 📸 Image enhancement for better webcam accuracy
+- 📹 Real-time surveillance with motion detection [2026-03-11]
+- 📋 Automated attendance tracking [2026-03-11]
+- 🚨 Threat clip recording & cloud upload [2026-03-11]
 
 ---
 
@@ -82,8 +85,9 @@
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      DATABASE (Supabase/PostgreSQL)             │
-│   Tables: users, admins, login_logs                             │
-│   Storage: Face embeddings as JSONB (128-d vectors)             │
+│   Tables: users, admins, login_logs,                            │
+│           attendance, surveillance_logs, local_recordings        │
+│   Storage: Face embeddings (JSONB), threat-clips, security-audits│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -135,16 +139,20 @@
 ### File Structure
 ```
 backend/
-├── main.py              # FastAPI app entry point
-├── config.py            # Settings (env variables)
-├── auth.py              # JWT & password utilities
-├── vision_engine.py     # Face recognition engine
-├── supabase_client.py   # Database client
-├── models.py            # Pydantic models
+├── main.py                  # FastAPI app entry point (v2.0.0)
+├── config.py                # Settings (env variables)
+├── auth.py                  # JWT & password utilities
+├── vision_engine.py         # Face recognition engine
+├── surveillance_engine.py   # [2026-03-11] Dual-thread surveillance
+├── supabase_client.py       # Database client
+├── models.py                # Pydantic models
+├── migrations/
+│   └── 001_surveillance_schema.sql
 └── routes/
-    ├── auth.py          # /api/auth/* endpoints
-    ├── user.py          # /api/user/* endpoints
-    └── admin.py         # /api/admin/* endpoints
+    ├── auth.py              # /api/auth/*
+    ├── user.py              # /api/user/*
+    ├── admin.py             # /api/admin/*
+    └── surveillance.py      # [2026-03-11] /api/surveillance/*
 ```
 
 ### Vision Engine Features [2026-02-03]
@@ -163,10 +171,19 @@ backend/
 
 ### Config Settings
 ```python
+# DeepFace
 DEEPFACE_MODEL = "Facenet"           # 128-d embeddings
 DEEPFACE_DETECTOR = "retinaface"     # Best accuracy
 FACE_MATCH_THRESHOLD = 0.4           # Stricter (was 0.6)
 MIN_FACE_SIZE = 80                   # Minimum pixels
+
+# Surveillance [2026-03-11]
+RECORDINGS_DIR = "C:/SecureVision/Recordings"
+SURVEILLANCE_FPS = 30
+MOTION_THRESHOLD = 25.0
+ATTENDANCE_DEBOUNCE_SECONDS = 300    # 5 min per user
+RECORDING_CHUNK_MINUTES = 5
+FFMPEG_PATH = "ffmpeg"
 ```
 
 ---
@@ -178,21 +195,23 @@ MIN_FACE_SIZE = 80                   # Minimum pixels
 frontend/src/
 ├── main.jsx             # App entry point
 ├── App.jsx              # Router setup
-├── index.css            # Global styles
+├── index.css            # Global styles (Tailwind)
 ├── lib/
 │   ├── api.js           # Axios instance
 │   └── supabase.js      # Supabase client (if needed)
 ├── components/
-│   ├── WebcamCapture.jsx    # Camera component
+│   ├── WebcamCapture.jsx       # Camera component
 │   ├── AnimatedBackground.jsx
-│   └── StatCard.jsx
+│   ├── StatCard.jsx
+│   ├── SurveillanceTab.jsx     # [2026-03-11] Live feed + alerts + recordings
+│   └── AttendanceTab.jsx       # [2026-03-11] Date picker + attendance grid
 └── pages/
     ├── Home.jsx
     ├── Login.jsx            # Face login
     ├── Register.jsx         # Face registration
     ├── Dashboard.jsx        # User dashboard
     ├── AdminLogin.jsx       # Admin password login
-    └── AdminDashboard.jsx   # User management
+    └── AdminDashboard.jsx   # [2026-03-11] Sidebar layout + 3 tabs
 ```
 
 ### Key Components
@@ -203,11 +222,18 @@ frontend/src/
 - Outputs JPEG format (no alpha channel)
 - Exposed via `forwardRef` for parent control
 
-**AdminDashboard.jsx** [2026-02-03]
-- Optimistic updates for block/unblock
-- Toast notifications (no blocking alerts)
-- Loading spinner on buttons
-- Real-time refresh every 10 seconds
+**AdminDashboard.jsx** [2026-03-11] — Redesigned
+- Sidebar layout with collapsible navigation
+- **Surveillance tab**: MJPEG live feed, WebSocket alerts panel, recording duration slider (1min–24hr), event logs table, local recordings table with Open Location
+- **Attendance tab**: Date picker, user search, summary cards (unique users, total detections), user summary grid, detailed log table
+- **User Management tab**: Original block/unblock functionality preserved with optimistic updates, toast notifications, stat cards
+
+**LockScreen.jsx** [2026-03-11]
+- Full-screen overlay with live camera preview
+- Face-unlock button with scanning animation
+- Status transitions: locked → verifying → success/failed
+- Failed attempt counter (snapshots uploaded to security-audits)
+- Auto-invoked by UserDashboard after 5 min inactivity
 
 ---
 
@@ -230,6 +256,15 @@ frontend/src/
 ### Camera Permissions
 - Auto-granted via `featurePermissionRequested` signal
 - Profile persisted in `kiosk/secure_profile/`
+
+### File Explorer Bridge [2026-03-11]
+- Kiosk polls `GET /api/surveillance/explorer-commands` every 2s
+- Opens Windows File Explorer when admin clicks "Open Location" on recordings
+
+### Auto-Lock Integration [2026-03-11]
+- Inactivity detection handled in `UserDashboard.jsx` (frontend, 5 min timer)
+- `LockScreen.jsx` rendered as z-9999 overlay
+- Unlock calls `POST /api/auth/verify-unlock`
 
 ---
 
@@ -265,6 +300,40 @@ frontend/src/
 | ip_address | TEXT | Client IP |
 | error_message | TEXT | Failure reason |
 | timestamp | TIMESTAMP | Log time |
+
+### Table: `attendance` [2026-03-11]
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| user_id | UUID | FK → users |
+| detected_time | TIMESTAMPTZ | When face was detected |
+| date | DATE | Date (for grouping) |
+| status | TEXT | Default 'PRESENT' |
+
+### Table: `surveillance_logs` [2026-03-11]
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| event_type | TEXT | AUTHORIZED/UNAUTHORIZED/SPOOF/MOTION |
+| timestamp | TIMESTAMPTZ | Event time |
+| snapshot_url | TEXT | Snapshot image URL |
+| video_clip_url | TEXT | Threat clip URL |
+| details | JSONB | Additional data |
+
+### Table: `local_recordings` [2026-03-11]
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| start_time | TIMESTAMPTZ | Recording start |
+| end_time | TIMESTAMPTZ | Recording end |
+| local_path | TEXT | Windows file path |
+| trigger_type | TEXT | CONTINUOUS/MOTION_ONLY |
+
+### Storage Buckets [2026-03-11]
+| Bucket | Purpose | Access |
+|--------|---------|--------|
+| `threat-clips` | 15s video clips of threats | Private (service role) |
+| `security-audits` | Failed unlock frames | Private (service role) |
 
 ---
 
@@ -316,6 +385,7 @@ frontend/src/
 | POST | `/api/auth/register` | Register with face |
 | POST | `/api/auth/login` | Login with face |
 | POST | `/api/auth/admin-login` | Admin password login |
+| POST | `/api/auth/verify-unlock` | Face-unlock for session resume [2026-03-11] |
 
 ### User
 | Method | Endpoint | Description |
@@ -329,6 +399,22 @@ frontend/src/
 | GET | `/api/admin/users` | List all users |
 | POST | `/api/admin/block-user` | Block/unblock user |
 
+### Surveillance [2026-03-11]
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/surveillance/start` | Start surveillance engine |
+| POST | `/api/surveillance/stop` | Stop surveillance engine |
+| GET | `/api/surveillance/status` | Engine status |
+| GET | `/api/surveillance/feed` | MJPEG live video stream |
+| WS | `/api/surveillance/ws/alerts` | WebSocket real-time alerts |
+| POST | `/api/surveillance/recording/duration` | Set chunk duration |
+| GET | `/api/surveillance/recordings` | List local recording files |
+| GET | `/api/surveillance/logs` | Get surveillance event logs |
+| GET | `/api/surveillance/attendance` | Get attendance records |
+| POST | `/api/surveillance/refresh-embeddings` | Refresh face cache |
+| POST | `/api/surveillance/open-explorer` | Queue file explorer open |
+| GET | `/api/surveillance/explorer-commands` | Kiosk polls for commands |
+
 ---
 
 ## Running the Project
@@ -336,6 +422,7 @@ frontend/src/
 ### Prerequisites
 - Python 3.9+
 - Node.js 18+
+- FFmpeg (system-installed, in PATH) [2026-03-11]
 - Supabase account with database setup
 
 ### Step 1: Backend
@@ -369,6 +456,41 @@ python main_pyqt5.py
 ---
 
 ## Changelog
+
+### [2026-03-11] — Phase 4: Auto-Lock & Session Resume
+- ✅ Added `/api/auth/verify-unlock` endpoint (face verification for session resume)
+- ✅ Created `LockScreen.jsx` (camera preview, scanning animation, face-unlock, fail counter)
+- ✅ Added inactivity auto-lock to `UserDashboard.jsx` (5 min timer, mouse/keyboard/touch tracking)
+- ✅ Failed unlock → snapshot uploaded to `security-audits` bucket + logged to `surveillance_logs`
+- ✅ Added file explorer bridge to `main_pyqt5.py` (polls backend for open commands)
+
+### [2026-03-11] — Phase 3: Admin Dashboard Redesign
+- ✅ Rewrote `AdminDashboard.jsx` as sidebar layout with 3 tabs
+- ✅ Created `SurveillanceTab.jsx` — live MJPEG feed, WebSocket alerts, recording slider, event logs, recordings table with Open Location
+- ✅ Created `AttendanceTab.jsx` — date picker, search, user summary cards, detailed attendance grid
+- ✅ Preserved all existing user management (block/unblock, optimistic updates, toast)
+- ✅ Collapsible sidebar with admin profile + logout
+
+### [2026-03-11] — Phase 2: Dual-Thread Surveillance Engine
+- ✅ Created `surveillance_engine.py` with dual-thread architecture
+  - Thread 1 (Recorder): Continuous .mp4 chunks to `C:/SecureVision/Recordings/`
+  - Thread 2 (AI Analyst): Motion detection + face matching every 500ms
+  - MJPEG streaming for live feed
+  - FFmpeg 15-second threat clip extraction
+  - Thread-safe FrameBuffer for frame sharing
+- ✅ Created `routes/surveillance.py` (12 endpoints + WebSocket)
+- ✅ Updated `main.py` to v2.0.0 with surveillance routes
+- ✅ Verified compatibility with existing `vision_engine.py` methods
+
+### [2026-03-11] — Phase 1: Surveillance Database Schema
+- ✅ Created SQL migration `001_surveillance_schema.sql`
+- ✅ Added 3 new tables: `attendance`, `surveillance_logs`, `local_recordings`
+- ✅ Added 2 storage buckets: `threat-clips`, `security-audits` (private)
+- ✅ Added RLS policies for service-role access
+- ✅ Updated `config.py` with surveillance settings
+- ✅ Updated `models.py` with 6 new Pydantic models
+- ✅ Updated `supabase_client.py` with CRUD for all new tables + storage upload
+- ✅ Added `get_all_user_embeddings()` for surveillance face matching
 
 ### [2026-02-03]
 - ✅ Integrated old project's image enhancement (CLAHE, sharpening, brightness, bilateral filter)

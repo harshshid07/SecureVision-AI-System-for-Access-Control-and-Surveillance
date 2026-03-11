@@ -2,8 +2,9 @@
  * User Dashboard - Redesigned with old project UI
  * Features: Animated background, stat cards, enhanced profile card, login history table
  * Real-time Supabase subscription for blocking detection
+ * [2026-03-11] Added: Auto-lock after inactivity with face-unlock
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     User,
@@ -24,6 +25,11 @@ import { AnimatedBackground } from '../components/AnimatedBackground'
 import { GlassPanel } from '../components/GlassPanel'
 import { StatCard } from '../components/StatCard'
 import { StatusIndicator } from '../components/StatusIndicator'
+import LockScreen from '../components/LockScreen'
+
+// ==================== AUTO-LOCK CONFIG [2026-03-11] ====================
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000  // 5 minutes of inactivity → lock
+// ======================================================================
 
 export default function UserDashboard() {
     const navigate = useNavigate()
@@ -38,6 +44,39 @@ export default function UserDashboard() {
     const [loading, setLoading] = useState(true)
     const userId = localStorage.getItem('user_id')
     const username = localStorage.getItem('username')
+
+    // ==================== AUTO-LOCK STATE [2026-03-11] ====================
+    const [isLocked, setIsLocked] = useState(false)
+    const inactivityTimer = useRef(null)
+
+    const resetInactivityTimer = useCallback(() => {
+        if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+        inactivityTimer.current = setTimeout(() => {
+            console.log('⏰ Inactivity timeout — locking session')
+            setIsLocked(true)
+        }, INACTIVITY_TIMEOUT_MS)
+    }, [])
+
+    // Attach activity listeners
+    useEffect(() => {
+        const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll']
+        const handler = () => {
+            if (!isLocked) resetInactivityTimer()
+        }
+        events.forEach(e => window.addEventListener(e, handler))
+        resetInactivityTimer() // Start the timer
+
+        return () => {
+            events.forEach(e => window.removeEventListener(e, handler))
+            if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+        }
+    }, [isLocked, resetInactivityTimer])
+
+    const handleUnlock = () => {
+        setIsLocked(false)
+        resetInactivityTimer()
+    }
+    // =====================================================================
 
     useEffect(() => {
         // Check authentication
@@ -354,6 +393,15 @@ export default function UserDashboard() {
                     </div>
                 </div>
             </main>
+
+            {/* ==================== LOCK SCREEN OVERLAY [2026-03-11] ==================== */}
+            {isLocked && (
+                <LockScreen
+                    onUnlock={handleUnlock}
+                    lockedUsername={username}
+                />
+            )}
+            {/* ========================================================================= */}
         </div>
     )
 }

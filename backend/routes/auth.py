@@ -199,3 +199,85 @@ async def admin_login(request: AdminLoginRequest):
         username=admin["email"],
         role="admin"
     )
+
+
+@router.post("/verify-unlock", response_model=VerificationResponse)
+async def verify_unlock(request: UserLoginRequest, req: Request):
+    """
+    Verify face for kiosk unlock (session resume).
+    On failure: uploads snapshot to security-audits bucket + logs to surveillance_logs.
+    On success: extends the existing session (no new token needed).
+    """
+    import base64
+    from datetime import datetime
+
+    # Get user from database
+    user = await db.get_user_by_username(request.username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Check block status
+    if user["is_blocked"]:
+        raise HTTPException(status_code=403, detail="Account is blocked. Contact administrator.")
+
+    # Verify face
+    verification_result = vision_engine.verify_access(
+        live_image_base64=request.face_image,
+        stored_embedding=user["face_embedding"]
+    )
+
+    now = datetime.now()
+
+    if not verification_result["verified"]:
+        # ===== FAILED UNLOCK: Upload snapshot to security-audits =====
+        try:
+            # Decode the face image to raw bytes for upload
+            img_data = request.face_image
+            if "," in img_data and "data:image" in img_data:
+                img_data = img_data.split(",", 1)[1]
+            image_bytes = base64.b64decode(img_data)
+
+            filename = f"failed_unlock_{user['username']}_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
+            snapshot_url = await db.upload_security_audit(image_bytes, filename)
+        except Exception as e:
+            print(f"⚠ Failed to upload security audit: {e}")
+            snapshot_url = None
+
+        # Log to surveillance_logs
+        await db.create_surveillance_log(
+            event_type="UNAUTHORIZED",
+            timestamp=now.isoformat(),
+            snapshot_url=snapshot_url,
+            details={
+                "action": "FAILED_UNLOCK",
+                "username": user["username"],
+                "similarity_score": verification_result["similarity_score"],
+                "is_real": verification_result["is_real"],
+                "ip_address": req.client.host,
+            }
+        )
+
+        return VerificationResponse(
+            success=False,
+            message=verification_result["error"] or "Face verification failed for unlock.",
+            data={
+                "similarity_score": verification_result["similarity_score"],
+                "is_real": verification_result["is_real"],
+                "face_count": verification_result["face_count"],
+                "snapshot_uploaded": snapshot_url is not None,
+            }
+        )
+
+    # ===== SUCCESS: Session resumed =====
+    await db.update_last_login(user["id"])
+
+    return VerificationResponse(
+        success=True,
+        message="Unlock successful — session resumed.",
+        data={
+            "user_id": user["id"],
+            "username": user["username"],
+            "similarity_score": verification_result["similarity_score"],
+        }
+    )
+

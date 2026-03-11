@@ -11,13 +11,13 @@ Tech Stack: Python 3.x, PyQt5, PyQtWebEngine
 
 import sys
 import os
-from PyQt5.QtWidgets import (
+from PyQt5.QtWidgets import (  # type: ignore
     QApplication, QMainWindow, QWidget, QVBoxLayout
 )
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEngineSettings
-from PyQt5.QtCore import Qt, QTimer, QUrl
-from PyQt5.QtWidgets import QShortcut
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEngineSettings  # type: ignore
+from PyQt5.QtCore import Qt, QTimer, QUrl  # type: ignore
+from PyQt5.QtWidgets import QShortcut  # type: ignore
+from PyQt5.QtGui import QKeySequence  # type: ignore
 
 
 class SecureKioskWindow(QMainWindow):
@@ -50,6 +50,9 @@ class SecureKioskWindow(QMainWindow):
         
         # Start focus monitoring
         self.start_focus_monitoring()
+        
+        # Start file explorer bridge [2026-03-11]
+        self.start_explorer_polling()
         
     def setup_ui(self):
         """Configure the main window appearance and behavior"""
@@ -95,10 +98,25 @@ class SecureKioskWindow(QMainWindow):
         self.browser = QWebEngineView()
         
         # Create a page with our profile
-        from PyQt5.QtWebEngineWidgets import QWebEnginePage
-        page = QWebEnginePage(self.profile, self.browser)
+        from PyQt5.QtWebEngineWidgets import QWebEnginePage  # type: ignore
         
-        # Connect the permission signal - THIS IS THE KEY FIX
+        # Custom page to suppress noisy JS logs in the python console (404s, WS drops)
+        class SecureWebPage(QWebEnginePage):
+            def __init__(self, profile, parent=None):
+                super().__init__(profile, parent)  # type: ignore
+                
+            def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
+                # We can completely silence JS logs or only filter specific ones
+                # Here we filter the noise that confused the user:
+                if "status code 404" in message or "WebSocket" in message:
+                    return
+                # Only log real errors
+                if level == QWebEnginePage.ErrorMessageLevel:
+                    print(f"🌐 [Browser] {message}")
+                    
+        page = SecureWebPage(self.profile, self.browser)
+        
+        # Connect the permission signal
         # PyQt5 uses signals, not method overrides for permissions
         def handle_permission_request(url, feature):
             """Handle camera/microphone permission requests"""
@@ -171,6 +189,42 @@ class SecureKioskWindow(QMainWindow):
         self.exit_shortcut.activated.connect(self.safe_exit)
         
         print("✓ Exit shortcut configured: Ctrl+K")
+    
+    # ==================== FILE EXPLORER BRIDGE [2026-03-11] ====================
+    def start_explorer_polling(self):
+        """Poll backend for file explorer open commands from admin dashboard"""
+        self.explorer_timer = QTimer(self)
+        self.explorer_timer.timeout.connect(self.check_explorer_commands)
+        self.explorer_timer.start(2000)  # Check every 2 seconds
+        print("✓ File explorer bridge started (polling every 2s)")
+    
+    def check_explorer_commands(self):
+        """Check for pending file explorer commands"""
+        import urllib.request
+        import json
+        try:
+            req = urllib.request.Request("http://localhost:8000/api/surveillance/explorer-commands")
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                data = json.loads(resp.read())
+                for path in data.get("commands", []):
+                    self.open_file_explorer(path)
+        except Exception:
+            pass  # Backend may not be running yet
+    
+    def open_file_explorer(self, path):
+        """Open Windows File Explorer at the given path"""
+        import subprocess
+        try:
+            # Get the directory from the file path
+            directory = os.path.dirname(path) if os.path.isfile(path) else path
+            if os.path.exists(directory):
+                subprocess.Popen(f'explorer "{directory}"')
+                print(f"📁 Opened explorer: {directory}")
+            else:
+                print(f"⚠ Path does not exist: {directory}")
+        except Exception as e:
+            print(f"⚠ Explorer error: {e}")
+    # ===========================================================================
         
     def start_focus_monitoring(self):
         """Start timer to monitor and steal back focus"""
@@ -217,7 +271,7 @@ class SecureKioskWindow(QMainWindow):
         """
         Override key press to block escape attempts but allow copy/paste and Win+PrintScreen
         """
-        from PyQt5.QtCore import Qt
+        from PyQt5.QtCore import Qt  # type: ignore
         
         # Allow Win+PrintScreen (saves screenshot to Pictures folder)
         if event.key() == Qt.Key_Print:

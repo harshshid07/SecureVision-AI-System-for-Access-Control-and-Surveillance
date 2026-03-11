@@ -1,7 +1,7 @@
 """
 Pydantic models for request/response validation
 """
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field  # type: ignore
 from typing import Optional, List
 from datetime import datetime
 
@@ -80,3 +80,51 @@ class VerificationResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     details: Optional[str] = None
+
+
+# ==================== SURVEILLANCE MODELS ====================
+
+class AttendanceEntry(BaseModel):
+    id: Optional[str] = None
+    user_id: str
+    detected_time: datetime
+    date: str  # YYYY-MM-DD
+    status: str = "PRESENT"
+
+
+class SurveillanceLogEntry(BaseModel):
+    id: Optional[str] = None
+    event_type: str  # AUTHORIZED, UNAUTHORIZED, SPOOF, MOTION
+    timestamp: datetime
+    snapshot_url: Optional[str] = None
+    video_clip_url: Optional[str] = None
+    details: Optional[dict] = None
+
+
+class LocalRecordingEntry(BaseModel):
+    id: Optional[str] = None
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    local_path: str
+    trigger_type: str = "CONTINUOUS"  # CONTINUOUS or MOTION_ONLY
+
+
+class SurveillanceAlert(BaseModel):
+    """Model for WebSocket push alerts to frontend"""
+    event_type: str
+    timestamp: str
+    snapshot_url: Optional[str] = None
+    user_identity: Optional[str] = None  # username if recognized
+    similarity_score: Optional[float] = None
+    details: Optional[dict] = None
+
+
+class RecordingDurationRequest(BaseModel):
+    """Request to change recording chunk duration"""
+    duration_minutes: int = Field(..., ge=1, le=1440)  # 1 min to 24 hrs
+
+
+class VerifyUnlockRequest(BaseModel):
+    """Request for face-based session unlock"""
+    face_image: str  # Base64 encoded image
+    user_id: str     # Currently logged-in user's ID

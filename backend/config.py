@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     FACE_MATCH_THRESHOLD: float = 0.4  # Stricter threshold for better security (was 0.6)
     MIN_FACE_SIZE: int = 80  # Minimum face size in pixels
     
+    # Surveillance Configuration
+    RECORDINGS_DIR: str = "C:/SecureVision/Recordings"
+    SURVEILLANCE_FPS: int = 30
+    MOTION_THRESHOLD: float = 25.0          # Frame-diff sensitivity
+    ATTENDANCE_DEBOUNCE_SECONDS: int = 300   # 5 min debounce per user
+    RECORDING_CHUNK_MINUTES: int = 5         # Default chunk duration
+    FFMPEG_PATH: str = "ffmpeg"              # FFmpeg binary path
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

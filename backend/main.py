@@ -5,15 +5,23 @@ Entry point for the backend API server
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+)
 
 # Import routes
 from routes import auth, user, admin
+from routes.surveillance import router as surveillance_router
 
 # Create FastAPI app
 app = FastAPI(
     title="SecureVision API",
-    description="Enterprise-grade facial recognition authentication system",
-    version="1.0.0"
+    description="Enterprise-grade facial recognition + real-time surveillance system",
+    version="2.0.0"
 )
 
 # Configure CORS
@@ -29,6 +37,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(admin.router)
+app.include_router(surveillance_router)
 
 
 @app.get("/")
@@ -36,17 +45,19 @@ async def root():
     """Health check endpoint"""
     return {
         "message": "SecureVision API is running",
-        "version": "1.0.0",
-        "status": "healthy"
+        "version": "2.0.0",
+        "status": "healthy",
+        "modules": ["auth", "surveillance"]
     }
 
 
 @app.get("/health")
 async def health_check():
     """Health check for monitoring"""
+    from surveillance_engine import surveillance_engine
     return {
         "status": "healthy",
-        "timestamp": "2026-01-29T22:56:43Z"
+        "surveillance": surveillance_engine.get_status()
     }
 
 
@@ -58,3 +69,4 @@ if __name__ == "__main__":
         port=settings.API_PORT,
         reload=True
     )
+
