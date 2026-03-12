@@ -275,6 +275,31 @@ class SupabaseClient:
             print(f"Error uploading security audit: {e}")
             return None
     
+    # ==================== LOGIN SNAPSHOT OPERATIONS ====================
+    
+    async def upload_login_snapshot(self, image_bytes: bytes, file_name: str) -> Optional[str]:
+        """Upload a login snapshot to login-snapshots bucket"""
+        try:
+            self.client.storage.from_("login-snapshots").upload(
+                file_name, image_bytes, {"content-type": "image/jpeg"}
+            )
+            signed = self.client.storage.from_("login-snapshots").create_signed_url(file_name, 604800)
+            return signed.get("signedURL") if signed else None
+        except Exception as e:
+            print(f"Error uploading login snapshot: {e}")
+            return None
+    
+    async def get_login_snapshots(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get login logs with snapshot data for a specific user"""
+        try:
+            response = self.client.table("login_logs").select(
+                "*"
+            ).eq("user_id", user_id).order("timestamp", desc=True).limit(limit).execute()
+            return response.data
+        except Exception as e:
+            print(f"Error fetching login snapshots: {e}")
+            return []
+    
     # ==================== USER LOOKUP FOR SURVEILLANCE ====================
     
     async def get_all_user_embeddings(self) -> List[Dict[str, Any]]:

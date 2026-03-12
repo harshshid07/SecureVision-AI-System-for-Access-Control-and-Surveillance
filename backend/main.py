@@ -2,9 +2,9 @@
 FastAPI main application for SecureVision
 Entry point for the backend API server
 """
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from config import settings
+from fastapi import FastAPI  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from config import settings  # type: ignore
 import logging
 
 # Configure logging
@@ -14,8 +14,8 @@ logging.basicConfig(
 )
 
 # Import routes
-from routes import auth, user, admin
-from routes.surveillance import router as surveillance_router
+from routes import auth, user, admin  # type: ignore
+from routes.surveillance import router as surveillance_router  # type: ignore
 
 # Create FastAPI app
 app = FastAPI(
@@ -54,15 +54,15 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check for monitoring"""
-    from surveillance_engine import surveillance_engine
+    from surveillance_engine import engine_manager  # type: ignore
     return {
         "status": "healthy",
-        "surveillance": surveillance_engine.get_status()
+        "surveillance": engine_manager.get_status()
     }
 
 
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  # type: ignore
     uvicorn.run(
         "main:app",
         host=settings.API_HOST,

@@ -3,9 +3,10 @@ Authentication utilities for SecureVision
 Handles JWT token creation/verification and password hashing
 """
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
-import bcrypt
-from config import settings
+from typing import Optional
+from jose import JWTError, jwt  # type: ignore
+import bcrypt  # type: ignore
+from config import settings  # type: ignore
 
 # JWT Configuration
 SECRET_KEY = settings.JWT_SECRET
@@ -27,7 +28,7 @@ def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
-def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token"""
     to_encode = data.copy()
     
@@ -40,7 +41,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def verify_token(token: str) -> dict:
+def verify_token(token: str) -> Optional[dict]:
     """Verify JWT token and return payload"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

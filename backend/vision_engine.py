@@ -3,14 +3,14 @@ Vision Engine for SecureVision
 Handles all face recognition, anti-spoofing, and validation logic using DeepFace
 Integrated with image enhancement from old project for better webcam accuracy
 """
-from deepface import DeepFace
+from deepface import DeepFace  # type: ignore
 from typing import Dict, Any, List, Tuple, Optional
-import numpy as np
+import numpy as np  # type: ignore
 import base64
-import cv2
+import cv2  # type: ignore
 from io import BytesIO
-from PIL import Image
-from config import settings
+from PIL import Image  # type: ignore
+from config import settings  # type: ignore
 import warnings
 import logging
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Check if PyTorch is available for anti-spoofing
 ANTI_SPOOFING_AVAILABLE = False
 try:
-    import torch
+    import torch  # type: ignore
     ANTI_SPOOFING_AVAILABLE = True
 except ImportError:
     warnings.warn(

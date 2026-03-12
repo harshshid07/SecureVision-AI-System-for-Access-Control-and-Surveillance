@@ -15,13 +15,13 @@ Tech Stack: Python 3.x, PyQt6, PyQt6-WebEngine
 
 import sys
 import os
-from PyQt6.QtWidgets import (
+from PyQt6.QtWidgets import (  # type: ignore
     QApplication, QMainWindow, QWidget, QVBoxLayout
 )
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings
-from PyQt6.QtCore import Qt, QTimer, QUrl
-from PyQt6.QtGui import QShortcut, QKeySequence
+from PyQt6.QtWebEngineWidgets import QWebEngineView  # type: ignore
+from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings  # type: ignore
+from PyQt6.QtCore import Qt, QTimer, QUrl  # type: ignore
+from PyQt6.QtGui import QShortcut, QKeySequence  # type: ignore
 
 
 class SecureKioskWindow(QMainWindow):
@@ -53,7 +53,11 @@ class SecureKioskWindow(QMainWindow):
         self.setup_exit_shortcut()
         
         # Start focus monitoring
+        self.focus_stealing_paused = False
         self.start_focus_monitoring()
+        
+        # Start file explorer bridge
+        self.start_explorer_polling()
         
     def setup_ui(self):
         """Configure the main window appearance and behavior"""
@@ -143,11 +147,54 @@ class SecureKioskWindow(QMainWindow):
         
         print("✓ Focus monitoring started (checking every 100ms)")
         
+    # ==================== FILE EXPLORER BRIDGE ====================
+    def start_explorer_polling(self):
+        """Poll backend for file explorer open commands from admin dashboard"""
+        self.explorer_timer = QTimer(self)
+        self.explorer_timer.timeout.connect(self.check_explorer_commands)
+        self.explorer_timer.start(2000)  # Check every 2 seconds
+        print("✓ File explorer bridge started (polling every 2s)")
+    
+    def check_explorer_commands(self):
+        """Check for pending file explorer commands"""
+        import urllib.request
+        import json
+        try:
+            req = urllib.request.Request("http://localhost:8000/api/surveillance/explorer-commands")
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                data = json.loads(resp.read())
+                for path in data.get("commands", []):
+                    self.open_file_explorer(path)
+        except Exception:
+            pass
+    
+    def open_file_explorer(self, path):
+        """Open Windows File Explorer at the given path"""
+        import subprocess
+        try:
+            directory = os.path.dirname(path) if os.path.isfile(path) else path
+            if os.path.exists(directory):
+                subprocess.Popen(f'explorer "{directory}"')
+                print(f"📁 Opened explorer: {directory}")
+                self.focus_stealing_paused = True
+                print("⏸ Focus-stealing paused for File Explorer usage.")
+            else:
+                print(f"⚠ Path does not exist: {directory}")
+        except Exception as e:
+            print(f"⚠ Explorer error: {e}")
+    # ===========================================================================
+        
     def check_focus(self):
         """
         Timer callback to check if window has focus
         If focus is lost, immediately steal it back
         """
+        if self.focus_stealing_paused:
+            if self.isActiveWindow():
+                self.focus_stealing_paused = False
+                print("▶ Focus-stealing resumed.")
+            return
+
         if not self.isActiveWindow():
             # Window lost focus - steal it back!
             self.raise_()
@@ -164,6 +211,9 @@ class SecureKioskWindow(QMainWindow):
         """
         super().focusOutEvent(event)
         
+        if self.focus_stealing_paused:
+            return
+            
         # Immediately steal focus back
         QTimer.singleShot(10, lambda: self.raise_())
         QTimer.singleShot(20, lambda: self.activateWindow())

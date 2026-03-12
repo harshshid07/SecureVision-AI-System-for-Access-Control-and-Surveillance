@@ -2,10 +2,10 @@
 Create Admin User for SecureVision
 Run this script to create an admin account in Supabase
 """
-import bcrypt
-from supabase import create_client
+import bcrypt  # type: ignore
+from supabase import create_client  # type: ignore
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 # Load environment variables
 load_dotenv()

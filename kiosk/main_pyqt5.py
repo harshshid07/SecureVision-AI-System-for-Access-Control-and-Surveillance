@@ -52,6 +52,7 @@ class SecureKioskWindow(QMainWindow):
         self.start_focus_monitoring()
         
         # Start file explorer bridge [2026-03-11]
+        self.focus_stealing_paused = False
         self.start_explorer_polling()
         
     def setup_ui(self):
@@ -220,6 +221,9 @@ class SecureKioskWindow(QMainWindow):
             if os.path.exists(directory):
                 subprocess.Popen(f'explorer "{directory}"')
                 print(f"📁 Opened explorer: {directory}")
+                # Pause focus stealing so admin can use explorer
+                self.focus_stealing_paused = True
+                print("⏸ Focus-stealing paused for File Explorer usage.")
             else:
                 print(f"⚠ Path does not exist: {directory}")
         except Exception as e:
@@ -240,6 +244,13 @@ class SecureKioskWindow(QMainWindow):
         Timer callback to check if window has focus
         If focus is lost, immediately steal it back
         """
+        if self.focus_stealing_paused:
+            # If we're paused and the user clicked back onto the kiosk window
+            if self.isActiveWindow():
+                self.focus_stealing_paused = False
+                print("▶ Focus-stealing resumed (Kiosk regained focus).")
+            return
+
         if not self.isActiveWindow():
             # Window lost focus - steal it back!
             self.raise_()
@@ -253,6 +264,9 @@ class SecureKioskWindow(QMainWindow):
         """
         super().focusOutEvent(event)
         
+        if self.focus_stealing_paused:
+            return
+            
         # Immediately steal focus back
         QTimer.singleShot(10, lambda: self.raise_())
         QTimer.singleShot(20, lambda: self.activateWindow())

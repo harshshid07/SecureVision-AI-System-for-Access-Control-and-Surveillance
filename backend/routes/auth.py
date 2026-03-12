@@ -2,19 +2,19 @@
 Authentication routes for SecureVision
 Handles user registration, login, and admin authentication
 """
-from fastapi import APIRouter, HTTPException, Request
-from models import (
+from fastapi import APIRouter, HTTPException, Request  # type: ignore
+from models import (  # type: ignore
     UserRegisterRequest,
     UserLoginRequest,
     AdminLoginRequest,
     TokenResponse,
     VerificationResponse
 )
-from supabase_client import db
-from vision_engine import vision_engine
-from auth import create_access_token, verify_password
+from supabase_client import db  # type: ignore
+from vision_engine import vision_engine  # type: ignore
+from auth import create_access_token, verify_password  # type: ignore
 from datetime import timedelta
-from config import settings
+from config import settings  # type: ignore
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
@@ -146,6 +146,37 @@ async def login_user(request: UserLoginRequest, req: Request):
     # Update last login
     await db.update_last_login(user["id"])
     
+    # ===== SAVE LOGIN SNAPSHOT =====
+    snapshot_local_path = None
+    snapshot_cloud_url = None
+    try:
+        import base64, os
+        img_data = request.face_image
+        if "," in img_data and "data:image" in img_data:
+            img_data = img_data.split(",", 1)[1]
+        image_bytes = base64.b64decode(img_data)
+        
+        # Save locally: {SNAPSHOTS_DIR}/{username}/{timestamp}.jpg
+        from datetime import datetime as dt
+        user_snapshot_dir = os.path.join(settings.SNAPSHOTS_DIR, user["username"])
+        os.makedirs(user_snapshot_dir, exist_ok=True)
+        timestamp_str = dt.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"login_{timestamp_str}.jpg"
+        local_path = os.path.join(user_snapshot_dir, filename)
+        with open(local_path, "wb") as f:
+            f.write(image_bytes)
+        snapshot_local_path = local_path
+        
+        # Cloud upload if mode is "both" or "cloud"
+        if settings.STORAGE_MODE in ("both", "cloud"):
+            try:
+                cloud_filename = f"{user['username']}/{filename}"
+                snapshot_cloud_url = await db.upload_login_snapshot(image_bytes, cloud_filename)
+            except Exception as cloud_err:
+                print(f"⚠ Cloud snapshot upload failed (will retry later): {cloud_err}")
+    except Exception as snap_err:
+        print(f"⚠ Snapshot save error: {snap_err}")
+    
     # Generate access token
     access_token = create_access_token(
         data={
@@ -164,7 +195,8 @@ async def login_user(request: UserLoginRequest, req: Request):
             "user_id": user["id"],
             "username": user["username"],
             "role": "user",
-            "similarity_score": verification_result["similarity_score"]
+            "similarity_score": verification_result["similarity_score"],
+            "snapshot_saved": snapshot_local_path is not None
         }
     )
 

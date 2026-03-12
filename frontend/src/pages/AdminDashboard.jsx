@@ -7,14 +7,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     Shield, LogOut, Users, Lock, Unlock, Clock, Mail, User,
-    Video, CalendarDays, UserCog, ChevronLeft, ChevronRight, Menu
+    Video, CalendarDays, UserCog, ChevronLeft, ChevronRight, Menu, FileVideo, ScrollText
 } from 'lucide-react'
 import api from '../lib/api'
 import SurveillanceTab from '../components/SurveillanceTab'
 import AttendanceTab from '../components/AttendanceTab'
+import RecordingsTab from '../components/RecordingsTab'
 
 const TABS = [
     { id: 'surveillance', label: 'Surveillance', icon: Video },
+    { id: 'recordings', label: 'Recordings', icon: FileVideo },
     { id: 'attendance', label: 'Attendance', icon: CalendarDays },
     { id: 'users', label: 'User Management', icon: UserCog },
 ]
@@ -23,6 +25,8 @@ export default function AdminDashboard() {
     const navigate = useNavigate()
     const [activeTab, setActiveTab] = useState('surveillance')
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+    const [recordingsDateFilter, setRecordingsDateFilter] = useState(null)
+    const [recordingsUser, setRecordingsUser] = useState(null)
     const adminEmail = localStorage.getItem('username')
 
     // User Management State (preserved from original)
@@ -159,7 +163,15 @@ export default function AdminDashboard() {
             <main className="flex-1 overflow-y-auto">
                 <div className="max-w-[1400px] mx-auto p-6">
                     {/* Tab Content */}
-                    {activeTab === 'surveillance' && <SurveillanceTab />}
+                    {activeTab === 'surveillance' && (
+                        <SurveillanceTab 
+                            onGoToRecordings={(date) => {
+                                setRecordingsDateFilter(date)
+                                setActiveTab('recordings')
+                            }} 
+                        />
+                    )}
+                    {activeTab === 'recordings' && <RecordingsTab defaultDate={recordingsDateFilter} defaultUser={recordingsUser} />}
                     {activeTab === 'attendance' && <AttendanceTab />}
                     {activeTab === 'users' && (
                         <UserManagementTab
@@ -168,6 +180,10 @@ export default function AdminDashboard() {
                             toggleBlockUser={toggleBlockUser}
                             blockingUserId={blockingUserId}
                             getUserStatus={getUserStatus}
+                            onViewUserLogs={(user) => {
+                                setRecordingsUser(user)
+                                setActiveTab('recordings')
+                            }}
                         />
                     )}
                 </div>
@@ -187,7 +203,7 @@ export default function AdminDashboard() {
 /**
  * User Management Tab (extracted from original AdminDashboard)
  */
-function UserManagementTab({ users, fetchUsers, toggleBlockUser, blockingUserId, getUserStatus }) {
+function UserManagementTab({ users, fetchUsers, toggleBlockUser, blockingUserId, getUserStatus, onViewUserLogs }) {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -292,7 +308,14 @@ function UserManagementTab({ users, fetchUsers, toggleBlockUser, blockingUserId,
                                                 {new Date(user.created_at).toLocaleDateString()}
                                             </td>
                                             <td className="py-3 px-4 text-right">
-                                                <button
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => onViewUserLogs && onViewUserLogs(user)}
+                                                        className="px-3 py-2 rounded-lg font-medium text-sm transition-all bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30 flex items-center gap-1.5"
+                                                    >
+                                                        <ScrollText className="w-4 h-4" /> Logs
+                                                    </button>
+                                                    <button
                                                     onClick={() => toggleBlockUser(user.id, user.is_blocked)}
                                                     disabled={blockingUserId === user.id}
                                                     className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-wait ${user.is_blocked
@@ -315,6 +338,7 @@ function UserManagementTab({ users, fetchUsers, toggleBlockUser, blockingUserId,
                                                         </span>
                                                     )}
                                                 </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     )

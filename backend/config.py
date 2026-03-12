@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     ATTENDANCE_DEBOUNCE_SECONDS: int = 300   # 5 min debounce per user
     RECORDING_CHUNK_MINUTES: int = 5         # Default chunk duration
     FFMPEG_PATH: str = "ffmpeg"              # FFmpeg binary path
+    SNAPSHOTS_DIR: str = "C:/SecureVision/Recordings/snapshots"
+    STORAGE_MODE: str = "local"               # "local", "cloud", or "both"
     
     class Config:
         env_file = ".env"
