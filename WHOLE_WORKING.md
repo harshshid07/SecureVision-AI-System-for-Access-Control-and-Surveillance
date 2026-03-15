@@ -1,6 +1,6 @@
 # SecureVision - Complete Project Documentation
 
-> **Last Updated:** [2026-03-11]  
+> **Last Updated:** [2026-03-12]  
 > This document is actively maintained and updated with every major change.
 
 ---
@@ -455,7 +455,19 @@ python main_pyqt5.py
 
 ---
 
-## Changelog
+### [2026-03-12] — Phase 6: Kiosk Storage & Cloud Sync Improvements
+- ✅ **Admin-Only File Explorer**: Replaced constant active polling with a lightweight, secure 5s admin-bridge that only runs when an admin dashboard heartbeat is detected. Normal users have zero file explorer access.
+- **Login Snapshots & Dashboard Enhancements**:
+  - ✅ Automatically captures a snapshot of a user's face during login.
+  - ✅ Created "User-wise Recordings" sub-tab inside Recordings to view specific user logs/snapshots.
+  - ✅ Recordings tab now merges video clips and user snapshots chronologically.
+- **Save Location Persistence & Sync**:
+  - ✅ Added Storage Mode toggle (`local`, `cloud`, or `both`).
+  - ✅ Added `storage_settings.json` to persist `RECORDINGS_DIR`, `SNAPSHOTS_DIR`, and `STORAGE_MODE` across backend restarts.
+  - ✅ Live reloading when changing directory in Admin Dashboard.
+  - ✅ Deleting recordings/snapshots in the app now concurrently deletes files from both the local disk and Supabase storage (`threat-clips` and `login-snapshots` buckets).
+- **Kiosk UI Fixes (React)**:
+  - ✅ Created pure-DOM replacements (`KioskSelect`, `KioskDateInput`, `KioskConfirm`, `KioskToast`) using inline styles to replace native HTML elements that crashed or glitched the PyQt kiosk web engine.
 
 ### [2026-03-11] — Phase 4: Auto-Lock & Session Resume
 - ✅ Added `/api/auth/verify-unlock` endpoint (face verification for session resume)

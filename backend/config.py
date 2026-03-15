@@ -47,3 +47,20 @@ class Settings(BaseSettings):
 
 # Singleton instance
 settings = Settings()
+
+import os
+import json
+
+_SETTINGS_FILE = os.path.join(os.path.dirname(__file__), 'storage_settings.json')
+if os.path.exists(_SETTINGS_FILE):
+    try:
+        with open(_SETTINGS_FILE, 'r') as f:
+            _data = json.load(f)
+            if 'mode' in _data:
+                settings.STORAGE_MODE = _data['mode']
+            if 'recordings_dir' in _data:
+                settings.RECORDINGS_DIR = _data['recordings_dir']
+            if 'snapshots_dir' in _data:
+                settings.SNAPSHOTS_DIR = _data['snapshots_dir']
+    except Exception as e:
+        print(f"Failed to load storage settings: {e}")

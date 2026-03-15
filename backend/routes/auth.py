@@ -167,8 +167,8 @@ async def login_user(request: UserLoginRequest, req: Request):
             f.write(image_bytes)
         snapshot_local_path = local_path
         
-        # Cloud upload if mode is "both" or "cloud"
-        if settings.STORAGE_MODE in ("both", "cloud"):
+        # Cloud upload if mode is "both"
+        if settings.STORAGE_MODE == "both":
             try:
                 cloud_filename = f"{user['username']}/{filename}"
                 snapshot_cloud_url = await db.upload_login_snapshot(image_bytes, cloud_filename)

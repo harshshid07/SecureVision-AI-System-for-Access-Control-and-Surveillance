@@ -1,8 +1,8 @@
 {
    "z30PjO/Hgv5b5sbMscoCB6INSjdOwHClnA7n5/qvLfU=": {
-      "expiry": 1804846610.573171,
+      "expiry": 1804868336.994134,
       "mode": "force-https",
       "sts_include_subdomains": true,
-      "sts_observed": 1773310610.573178
+      "sts_observed": 1773332336.994143
    }
 }

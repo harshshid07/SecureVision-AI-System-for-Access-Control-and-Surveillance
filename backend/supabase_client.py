@@ -289,6 +289,33 @@ class SupabaseClient:
             print(f"Error uploading login snapshot: {e}")
             return None
     
+    async def delete_login_snapshot(self, file_name: str) -> bool:
+        """Delete a login snapshot from login-snapshots bucket"""
+        try:
+            res = self.client.storage.from_("login-snapshots").remove([file_name])
+            if isinstance(res, dict) and res.get("error"):
+                print(f"API Error deleting login snapshot {file_name}: {res}")
+                return False
+            # Supabase usually returns a list of dictionaries of deleted files if successful
+            print(f"Successfully deleted {file_name} from login-snapshots bucket.")
+            return True
+        except Exception as e:
+            print(f"Error deleting login snapshot {file_name}: {e}")
+            return False
+            
+    async def delete_threat_clip(self, file_name: str) -> bool:
+        """Delete a video or threat clip from threat-clips bucket (fallback for recordings deletion)"""
+        try:
+            res = self.client.storage.from_("threat-clips").remove([file_name])
+            if isinstance(res, dict) and res.get("error"):
+                print(f"API Error deleting threat clip {file_name}: {res}")
+                return False
+            print(f"Successfully deleted {file_name} from threat-clips bucket.")
+            return True
+        except Exception as e:
+            print(f"Error deleting threat clip {file_name}: {e}")
+            return False
+    
     async def get_login_snapshots(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get login logs with snapshot data for a specific user"""
         try:

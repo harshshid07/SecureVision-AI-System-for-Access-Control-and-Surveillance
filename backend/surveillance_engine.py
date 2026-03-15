@@ -843,7 +843,8 @@ class EngineManager:
         return {
             "is_running": len(active_cams) > 0,
             "active_cameras": len(active_cams),
-            "cameras": active_cams
+            "cameras": active_cams,
+            "recordings_dir": settings.RECORDINGS_DIR
         }
 
 # Create a global instance of the multi-camera manager

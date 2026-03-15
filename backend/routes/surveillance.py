@@ -235,6 +235,30 @@ async def get_attendance(date: Optional[str] = None, limit: int = 100):
     return records
 
 
+# ==================== ADMIN SESSION TRACKING ====================
+# Simple heartbeat: admin dashboard calls /admin/users repeatedly (every 10s).
+# We track the last time that was called and consider admin "active" if within 30s.
+
+from datetime import timedelta
+
+_last_admin_heartbeat: Optional[datetime] = None
+
+@router.get("/admin-active")
+async def is_admin_active():
+    """Kiosk polls this — returns True only if admin dashboard is actively being used"""
+    if _last_admin_heartbeat is None:
+        return {"active": False}
+    elapsed = (datetime.now() - _last_admin_heartbeat).total_seconds()
+    return {"active": elapsed < 30}
+
+@router.post("/admin-heartbeat")
+async def admin_heartbeat():
+    """Admin dashboard calls this to signal it's alive"""
+    global _last_admin_heartbeat
+    _last_admin_heartbeat = datetime.now()
+    return {"status": "ok"}
+
+
 # ==================== KIOSK FILE EXPLORER BRIDGE ====================
 
 # Store pending file explorer commands for the kiosk to poll
@@ -295,28 +319,80 @@ async def set_recordings_path(path: str):
             
     # Update settings and active recorders
     settings.RECORDINGS_DIR = path
+    # Also update snapshots dir to be inside the new recordings dir
+    settings.SNAPSHOTS_DIR = os.path.join(path, "snapshots")
+    os.makedirs(settings.SNAPSHOTS_DIR, exist_ok=True)
+    
     for engine in engine_manager.engines.values():
         if engine.recorder:
             engine.recorder.recordings_dir = path
+            
+    # Persist to disk
+    import json
+    import os
+    settings_file = os.path.join(os.path.dirname(__file__), '..', 'storage_settings.json')
+    try:
+        with open(settings_file, 'r') as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    data["recordings_dir"] = path
+    data["snapshots_dir"] = settings.SNAPSHOTS_DIR
+    try:
+        with open(settings_file, 'w') as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"Failed to save recordings path: {e}")
         
     return {"status": "success", "path": path}
 
 
-# ==================== STORAGE MODE ====================
+# ==================== STORAGE MODE (persisted to disk) ====================
+
+import os as _os
+
+_SETTINGS_FILE = _os.path.join(_os.path.dirname(__file__), '..', 'storage_settings.json')
+
+def _read_storage_mode() -> str:
+    try:
+        with open(_SETTINGS_FILE, 'r') as f:
+            import json as _json
+            return _json.load(f).get('mode', 'local')
+    except Exception:
+        return 'local'
+
+def _write_storage_mode(mode: str):
+    import json as _json
+    try:
+        data = {}
+        if _os.path.exists(_SETTINGS_FILE):
+            with open(_SETTINGS_FILE, 'r') as f:
+                data = _json.load(f)
+        
+        data['mode'] = mode
+        
+        with open(_SETTINGS_FILE, 'w') as f:
+            _json.dump(data, f)
+    except Exception as e:
+        print(f"⚠ Failed to save storage mode: {e}")
 
 @router.get("/storage-mode")
 async def get_storage_mode():
-    """Get current storage mode setting"""
+    """Get current storage mode setting (persisted to disk)"""
     from config import settings  # type: ignore
-    return {"mode": settings.STORAGE_MODE}
+    mode = _read_storage_mode()
+    if mode == "cloud": mode = "both"  # Deprecated
+    settings.STORAGE_MODE = mode  # keep in-memory in sync
+    return {"mode": mode}
 
 @router.post("/storage-mode")
 async def set_storage_mode(mode: str):
-    """Set storage mode: local, cloud, or both"""
+    """Set storage mode: local or both (persisted to disk)"""
     from config import settings  # type: ignore
-    if mode not in ("local", "cloud", "both"):
-        raise HTTPException(status_code=400, detail="Mode must be 'local', 'cloud', or 'both'")
+    if mode not in ("local", "both"):
+        raise HTTPException(status_code=400, detail="Mode must be 'local' or 'both'")
     settings.STORAGE_MODE = mode
+    _write_storage_mode(mode)
     return {"status": "updated", "mode": mode}
 
 
@@ -387,38 +463,151 @@ async def serve_snapshot_file(username: str, filename: str):
     return FileResponse(file_path, media_type="image/jpeg")
 
 
-# ==================== FOLDER BROWSE DIALOG ====================
+# ==================== FOLDER BROWSE (KIOSK BRIDGE) ====================
+
+# Pending browse request and result — kiosk polls these
+_browse_pending = False
+_browse_result: Optional[str] = None
 
 @router.post("/browse-folder")
-async def browse_folder():
-    """Open a native folder picker dialog on the server and return chosen path.
-    Uses tkinter since backend runs on the same machine as the kiosk."""
-    import threading
-    result = {"path": None}
+async def request_browse_folder():
+    """Queue a folder picker request for the kiosk to handle via QFileDialog"""
+    global _browse_pending, _browse_result
+    _browse_pending = True
+    _browse_result = None
+    # Wait up to 30 seconds for the kiosk to respond
+    for _ in range(60):
+        await asyncio.sleep(0.5)
+        if _browse_result is not None or not _browse_pending:
+            break
+    _browse_pending = False
+    if _browse_result:
+        return {"status": "selected", "path": _browse_result}
+    return {"status": "cancelled", "path": None}
+
+@router.get("/browse-commands")
+async def get_browse_commands():
+    """Kiosk polls this to check if a folder picker is requested"""
+    return {"pending": _browse_pending}
+
+@router.post("/browse-result")
+async def receive_browse_result(data: dict):
+    """Kiosk sends back the folder path chosen via QFileDialog"""
+    global _browse_pending, _browse_result
+    _browse_result = data.get("path")
+    _browse_pending = False
+    return {"status": "received"}
+
+
+# ==================== DELETE RECORDING/SNAPSHOT ====================
+
+@router.delete("/recordings/{filename}")
+async def delete_recording(filename: str):
+    """Delete a recording file locally and from cloud"""
+    import os
+    from config import settings  # type: ignore
     
-    def _pick():
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes("-topmost", True)
-            folder = filedialog.askdirectory(title="Select Recordings Directory")
-            root.destroy()
-            if folder:
-                result["path"] = folder
-        except Exception as e:
-            print(f"Folder picker error: {e}")
+    local_deleted = False
+    cloud_deleted = False
     
-    # Run on a separate thread to avoid blocking the event loop
-    t = threading.Thread(target=_pick)
-    t.start()
-    t.join(timeout=60)  # Wait up to 60 seconds for user selection
+    # Try local deletion
+    file_path = os.path.join(settings.RECORDINGS_DIR, filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        local_deleted = True
+        
+    # Try cloud deletion
+    try:
+        cloud_deleted = await db.delete_threat_clip(filename)
+    except Exception:
+        pass
+        
+    if not local_deleted and not cloud_deleted:
+        raise HTTPException(status_code=404, detail="File not found locally or in cloud")
+        
+    return {"status": "deleted", "filename": filename, "local": local_deleted, "cloud": cloud_deleted}
+
+@router.delete("/snapshot/{username}/{filename}")
+async def delete_snapshot(username: str, filename: str):
+    """Delete a snapshot image file locally and from cloud"""
+    import os
+    from config import settings  # type: ignore
     
-    if result["path"]:
-        return {"status": "selected", "path": result["path"]}
-    else:
-        return {"status": "cancelled", "path": None}
+    local_deleted = False
+    cloud_deleted = False
+    
+    # Try local deletion
+    file_path = os.path.join(settings.SNAPSHOTS_DIR, username, filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        local_deleted = True
+        
+    # Try cloud deletion
+    try:
+        cloud_path = f"{username}/{filename}"
+        cloud_deleted = await db.delete_login_snapshot(cloud_path)
+    except Exception:
+        pass
+        
+    if not local_deleted and not cloud_deleted:
+        raise HTTPException(status_code=404, detail="Snapshot not found locally or in cloud")
+        
+    return {"status": "deleted", "filename": filename, "local": local_deleted, "cloud": cloud_deleted}
+
+
+# ==================== ALL RECORDINGS MERGED (VIDEOS + SNAPSHOTS) ====================
+
+@router.get("/all-recordings")
+async def get_all_recordings_merged(limit: int = 100):
+    """Get all recordings and snapshots merged chronologically"""
+    import os
+    import asyncio
+    from datetime import datetime
+    from config import settings  # type: ignore
+    
+    def fetch_items():
+        items = []
+        # 1. Local video recordings from RECORDINGS_DIR
+        rec_dir = settings.RECORDINGS_DIR
+        if os.path.exists(rec_dir):
+            for f in os.listdir(rec_dir):
+                if f.lower().endswith(('.mp4', '.avi', '.mkv', '.webm')):
+                    filepath = os.path.join(rec_dir, f)
+                    stat = os.stat(filepath)
+                    items.append({
+                        "type": "video",
+                        "filename": f,
+                        "username": None,
+                        "size": stat.st_size,
+                        "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "url": f"/api/surveillance/recordings/{f}",
+                    })
+        
+        # 2. User snapshots from SNAPSHOTS_DIR
+        snap_dir = settings.SNAPSHOTS_DIR
+        if os.path.exists(snap_dir):
+            for username in os.listdir(snap_dir):
+                user_dir = os.path.join(snap_dir, username)
+                if os.path.isdir(user_dir):
+                    for f in os.listdir(user_dir):
+                        if f.lower().endswith(('.jpg', '.jpeg', '.png')):
+                            filepath = os.path.join(user_dir, f)
+                            stat = os.stat(filepath)
+                            items.append({
+                                "type": "snapshot",
+                                "filename": f,
+                                "username": username,
+                                "size": stat.st_size,
+                                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                                "url": f"/api/surveillance/snapshot-file/{username}/{f}",
+                            })
+        
+        # Sort by created_at descending
+        items.sort(key=lambda x: x["created_at"], reverse=True)
+        return items[:limit]
+
+    # Offload blocking file I/O to threadpool
+    return await asyncio.to_thread(fetch_items)
 
 
 # ==================== LIST ALL USERS WITH SNAPSHOT COUNTS ====================
@@ -427,20 +616,26 @@ async def browse_folder():
 async def get_users_with_snapshot_counts():
     """Returns all users with the count of their local snapshots"""
     import os
+    import asyncio
     from config import settings  # type: ignore
     
     users = await db.get_all_users()
-    result = []
-    for u in users:
-        user_dir = os.path.join(settings.SNAPSHOTS_DIR, u["username"])
-        count = 0
-        if os.path.exists(user_dir):
-            count = len([f for f in os.listdir(user_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))])
-        result.append({
-            "id": u["id"],
-            "username": u["username"],
-            "email": u["email"],
-            "snapshot_count": count,
-            "last_login": u.get("last_login")
-        })
-    return result
+    
+    def count_snapshots(u_list):
+        result = []
+        for u in u_list:
+            user_dir = os.path.join(settings.SNAPSHOTS_DIR, u["username"])
+            count = 0
+            if os.path.exists(user_dir):
+                count = len([f for f in os.listdir(user_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))])
+            result.append({
+                "id": u["id"],
+                "username": u["username"],
+                "email": u["email"],
+                "snapshot_count": count,
+                "last_login": u.get("last_login")
+            })
+        return result
+
+    return await asyncio.to_thread(count_snapshots, users)
+

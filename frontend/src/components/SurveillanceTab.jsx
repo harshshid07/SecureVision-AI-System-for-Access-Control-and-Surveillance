@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Video, Play, Square, AlertTriangle, RefreshCw, Wifi, WifiOff, Maximize, Plus, Camera, Search, ChevronRight } from 'lucide-react'
+import { KioskDateInput } from './KioskUI'
 import api from '../lib/api'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -273,13 +274,11 @@ export default function SurveillanceTab({ onGoToRecordings }) {
                     </h3>
                     <div className="flex items-center gap-3">
                         <label className="text-sm font-medium text-gray-400">Date:</label>
-                        <input 
-                            type="date" 
+                        <KioskDateInput 
+                            value={alertsDate}
+                            onChange={setAlertsDate}
                             min={minDateStr}
                             max={maxDateStr}
-                            value={alertsDate}
-                            onChange={(e) => setAlertsDate(e.target.value)}
-                            className="bg-dark-bg border border-dark-border text-white px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                         />
                         <button onClick={fetchLogs} className="text-gray-400 hover:text-white p-1.5 rounded bg-dark-bg border border-dark-border">
                             <RefreshCw className="w-4 h-4" />

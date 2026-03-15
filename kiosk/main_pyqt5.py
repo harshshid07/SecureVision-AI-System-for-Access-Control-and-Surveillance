@@ -51,9 +51,9 @@ class SecureKioskWindow(QMainWindow):
         # Start focus monitoring
         self.start_focus_monitoring()
         
-        # Start file explorer bridge [2026-03-11]
+        # Admin-only file bridge — lightweight, single timer [2026-03-12]
         self.focus_stealing_paused = False
-        self.start_explorer_polling()
+        self.start_admin_bridge()
         
     def setup_ui(self):
         """Configure the main window appearance and behavior"""
@@ -191,43 +191,95 @@ class SecureKioskWindow(QMainWindow):
         
         print("✓ Exit shortcut configured: Ctrl+K")
     
-    # ==================== FILE EXPLORER BRIDGE [2026-03-11] ====================
-    def start_explorer_polling(self):
-        """Poll backend for file explorer open commands from admin dashboard"""
-        self.explorer_timer = QTimer(self)
-        self.explorer_timer.timeout.connect(self.check_explorer_commands)
-        self.explorer_timer.start(2000)  # Check every 2 seconds
-        print("✓ File explorer bridge started (polling every 2s)")
+    # ==================== ADMIN-ONLY FILE BRIDGE [lightweight] ====================
+    # Only polls when admin is logged in.  Users get ZERO explorer access.
+    # Single 5-second timer combines both explorer-open and folder-picker checks.
     
-    def check_explorer_commands(self):
-        """Check for pending file explorer commands"""
+    def start_admin_bridge(self):
+        """Single lightweight timer for admin-only file operations"""
+        self._admin_active = False
+        self.admin_timer = QTimer(self)
+        self.admin_timer.timeout.connect(self._admin_bridge_tick)
+        self.admin_timer.start(5000)  # 5s — low CPU cost
+        print("✓ Admin bridge started (5s interval, idle until admin logs in)")
+    
+    def _admin_bridge_tick(self):
+        """Check if admin is active, then process any file commands"""
         import urllib.request
         import json
+        try:
+            # 1) Check whether admin is currently logged in
+            req = urllib.request.Request("http://localhost:8000/api/surveillance/admin-active")
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                data = json.loads(resp.read())
+                self._admin_active = data.get("active", False)
+        except Exception:
+            self._admin_active = False
+            return
+
+        if not self._admin_active:
+            return  # do nothing — user mode, no explorer access
+        
+        # 2) Explorer open commands
         try:
             req = urllib.request.Request("http://localhost:8000/api/surveillance/explorer-commands")
             with urllib.request.urlopen(req, timeout=2) as resp:
                 data = json.loads(resp.read())
                 for path in data.get("commands", []):
-                    self.open_file_explorer(path)
+                    self._open_file_explorer(path)
         except Exception:
-            pass  # Backend may not be running yet
+            pass
+        
+        # 3) Browse-folder commands
+        try:
+            req = urllib.request.Request("http://localhost:8000/api/surveillance/browse-commands")
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                data = json.loads(resp.read())
+                if data.get("pending"):
+                    self._open_folder_dialog()
+        except Exception:
+            pass
     
-    def open_file_explorer(self, path):
-        """Open Windows File Explorer at the given path"""
+    def _open_file_explorer(self, path):
+        """Open Windows File Explorer at the given path (admin only)"""
         import subprocess
         try:
-            # Get the directory from the file path
             directory = os.path.dirname(path) if os.path.isfile(path) else path
             if os.path.exists(directory):
                 subprocess.Popen(f'explorer "{directory}"')
                 print(f"📁 Opened explorer: {directory}")
-                # Pause focus stealing so admin can use explorer
                 self.focus_stealing_paused = True
-                print("⏸ Focus-stealing paused for File Explorer usage.")
+                print("⏸ Focus-stealing paused for explorer")
             else:
                 print(f"⚠ Path does not exist: {directory}")
         except Exception as e:
             print(f"⚠ Explorer error: {e}")
+    
+    def _open_folder_dialog(self):
+        """Open a QFileDialog inside the kiosk for folder selection (admin only)"""
+        from PyQt5.QtWidgets import QFileDialog  # type: ignore
+        import urllib.request
+        import json
+        try:
+            self.focus_stealing_paused = True
+            folder = QFileDialog.getExistingDirectory(
+                self, "Select Recordings Directory", "C:/",
+                QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+            )
+            self.focus_stealing_paused = False
+            if folder:
+                payload = json.dumps({"path": folder}).encode("utf-8")
+                req = urllib.request.Request(
+                    "http://localhost:8000/api/surveillance/browse-result",
+                    data=payload, headers={"Content-Type": "application/json"}, method="POST"
+                )
+                urllib.request.urlopen(req, timeout=5)
+                print(f"📁 Folder selected: {folder}")
+            else:
+                print("📁 Folder selection cancelled")
+        except Exception as e:
+            self.focus_stealing_paused = False
+            print(f"⚠ Folder picker error: {e}")
     # ===========================================================================
         
     def start_focus_monitoring(self):

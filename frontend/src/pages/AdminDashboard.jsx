@@ -43,8 +43,12 @@ export default function AdminDashboard() {
             return
         }
         fetchUsers()
+        // Tell the kiosk that admin is active
+        const sendHeartbeat = () => { api.post('/api/surveillance/admin-heartbeat').catch(() => {}) }
+        sendHeartbeat()
         const interval = setInterval(fetchUsers, 10000)
-        return () => clearInterval(interval)
+        const heartbeat = setInterval(sendHeartbeat, 15000)
+        return () => { clearInterval(interval); clearInterval(heartbeat) }
     }, [])
 
     const fetchUsers = async () => {
