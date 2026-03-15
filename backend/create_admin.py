@@ -10,8 +10,8 @@ from dotenv import load_dotenv  # type: ignore
 # Load environment variables
 load_dotenv()
 
-SUPABASE_URL = os.getenv("https://rpsjhtwogguphddbszvs.supabase.co")
-SUPABASE_SERVICE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwc2podHdvZ2d1cGhkZGJzenZzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTY4MjA4OSwiZXhwIjoyMDg1MjU4MDg5fQ.w9OVthAOlre1YPgzGiHMEujhkDTFGvxWZbxV64mQ3UM")
+SUPABASE_URL = os.getenv("")
+SUPABASE_SERVICE_KEY = os.getenv("")
 
 def create_admin(email: str, password: str):
     """Create an admin user with hashed password"""
