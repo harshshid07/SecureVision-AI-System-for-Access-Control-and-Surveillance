@@ -1,3 +1,8 @@
+© 2026 Harsh Shid. All rights reserved.
+
+This project is licensed under Apache License 2.0.
+Original authorship remains with the founder.
+
 # SecureVision - Setup Instructions
 
 ## 📋 Overview
